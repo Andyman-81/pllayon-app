@@ -1,15 +1,32 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Pllay On Edge Athlete Edition API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: athlete
+    description: Athlete profile operations
+  - name: phase0
+    description: Phase 0 module operations
+  - name: weekly
+    description: Weekly reflection operations
+  - name: competition
+    description: Competition review operations
+  - name: checkin
+    description: Monthly check-in operations
+  - name: capstone
+    description: Capstone review operations
+  - name: sleep
+    description: Sleep log operations
+  - name: progress
+    description: Progress and stats operations
 paths:
   /healthz:
     get:
@@ -24,7 +41,488 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to the returnTo path on success.
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear the session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '302':
+          description: Redirect to the OIDC provider logout URL.
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange a mobile OIDC code for a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+      responses:
+        '200':
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token did not contain usable claims.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: Delete a mobile session token
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+      responses:
+        '200':
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+
+  /athlete/profile:
+    get:
+      operationId: getAthleteProfile
+      tags: [athlete]
+      summary: Get the current athlete's profile
+      responses:
+        "200":
+          description: Athlete profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AthleteProfile"
+        "404":
+          description: Profile not found (not yet created)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createAthleteProfile
+      tags: [athlete]
+      summary: Create or update the athlete's profile (onboarding)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AthleteProfileInput"
+      responses:
+        "200":
+          description: Profile created/updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AthleteProfile"
+
+  /phase0/modules:
+    get:
+      operationId: getPhase0Modules
+      tags: [phase0]
+      summary: Get all Phase 0 modules for the current athlete
+      responses:
+        "200":
+          description: List of phase 0 modules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Phase0Module"
+
+  /phase0/modules/{moduleName}:
+    get:
+      operationId: getPhase0Module
+      tags: [phase0]
+      summary: Get a specific Phase 0 module
+      parameters:
+        - name: moduleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Phase 0 module data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Phase0Module"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      operationId: savePhase0Module
+      tags: [phase0]
+      summary: Save a Phase 0 module (upsert)
+      parameters:
+        - name: moduleName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Phase0ModuleInput"
+      responses:
+        "200":
+          description: Module saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Phase0Module"
+
+  /weekly-reflections:
+    get:
+      operationId: getWeeklyReflections
+      tags: [weekly]
+      summary: Get all weekly reflections for the current athlete
+      responses:
+        "200":
+          description: List of weekly reflections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeeklyReflection"
+
+  /weekly-reflections/{weekNumber}:
+    get:
+      operationId: getWeeklyReflection
+      tags: [weekly]
+      summary: Get a specific week's reflection
+      parameters:
+        - name: weekNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Weekly reflection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyReflection"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      operationId: saveWeeklyReflection
+      tags: [weekly]
+      summary: Save a weekly reflection (upsert)
+      parameters:
+        - name: weekNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeeklyReflectionInput"
+      responses:
+        "200":
+          description: Reflection saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyReflection"
+
+  /competition-reviews:
+    get:
+      operationId: getCompetitionReviews
+      tags: [competition]
+      summary: Get all competition reviews for the current athlete
+      responses:
+        "200":
+          description: List of competition reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompetitionReview"
+    post:
+      operationId: createCompetitionReview
+      tags: [competition]
+      summary: Create a new competition review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompetitionReviewInput"
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetitionReview"
+
+  /competition-reviews/{id}:
+    put:
+      operationId: updateCompetitionReview
+      tags: [competition]
+      summary: Update a competition review
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompetitionReviewInput"
+      responses:
+        "200":
+          description: Review updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetitionReview"
+
+  /monthly-checkins/{monthNumber}:
+    get:
+      operationId: getMonthlyCheckin
+      tags: [checkin]
+      summary: Get a monthly check-in
+      parameters:
+        - name: monthNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Monthly check-in data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyCheckin"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      operationId: saveMonthlyCheckin
+      tags: [checkin]
+      summary: Save a monthly check-in (upsert)
+      parameters:
+        - name: monthNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MonthlyCheckinInput"
+      responses:
+        "200":
+          description: Check-in saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyCheckin"
+
+  /capstone:
+    get:
+      operationId: getCapstone
+      tags: [capstone]
+      summary: Get the capstone review
+      responses:
+        "200":
+          description: Capstone data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capstone"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      operationId: saveCapstone
+      tags: [capstone]
+      summary: Save the capstone review (upsert)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapstoneInput"
+      responses:
+        "200":
+          description: Capstone saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capstone"
+
+  /sleep-logs:
+    get:
+      operationId: getSleepLogs
+      tags: [sleep]
+      summary: Get sleep logs for the current athlete
+      responses:
+        "200":
+          description: List of sleep log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SleepLog"
+    post:
+      operationId: saveSleepLog
+      tags: [sleep]
+      summary: Save a sleep log entry (upsert by date)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SleepLogInput"
+      responses:
+        "200":
+          description: Sleep log saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SleepLog"
+
+  /progress:
+    get:
+      operationId: getProgress
+      tags: [progress]
+      summary: Get overall progress summary for the current athlete
+      responses:
+        "200":
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressSummary"
+
 components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +532,564 @@ components:
       required:
         - status
 
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: ["string", "null"]
+          format: email
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        profileImageUrl:
+          type: ["string", "null"]
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        code_verifier:
+          type: string
+          minLength: 1
+        redirect_uri:
+          type: string
+          minLength: 1
+          format: uri
+        state:
+          type: string
+          minLength: 1
+        nonce:
+          type: string
+          minLength: 1
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          const: true
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    AthleteProfile:
+      type: object
+      required: [id, userId, name, dob, sport, programStartDate]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        name:
+          type: string
+        dob:
+          type: string
+        sport:
+          type: string
+        club:
+          type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
+        parentName:
+          type: ["string", "null"]
+        programStartDate:
+          type: string
+        phase0CompletedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    AthleteProfileInput:
+      type: object
+      required: [name, dob, sport]
+      properties:
+        name:
+          type: string
+        dob:
+          type: string
+        sport:
+          type: string
+        club:
+          type: string
+        coachName:
+          type: string
+        parentName:
+          type: string
+
+    Phase0Module:
+      type: object
+      required: [id, athleteId, moduleName, completed]
+      properties:
+        id:
+          type: integer
+        athleteId:
+          type: integer
+        moduleName:
+          type: string
+        completed:
+          type: boolean
+        completedAt:
+          type: ["string", "null"]
+        data:
+          type: object
+
+    Phase0ModuleInput:
+      type: object
+      required: [data, completed]
+      properties:
+        data:
+          type: object
+        completed:
+          type: boolean
+
+    WeeklyReflection:
+      type: object
+      required: [id, athleteId, weekNumber]
+      properties:
+        id:
+          type: integer
+        athleteId:
+          type: integer
+        weekNumber:
+          type: integer
+        completedAt:
+          type: ["string", "null"]
+        effort:
+          type: ["integer", "null"]
+        focus:
+          type: ["integer", "null"]
+        consistency:
+          type: ["integer", "null"]
+        recovery:
+          type: ["integer", "null"]
+        ownership:
+          type: ["integer", "null"]
+        bestMoment:
+          type: ["string", "null"]
+        biggestChallenge:
+          type: ["string", "null"]
+        keyLearning:
+          type: ["string", "null"]
+        focusAnswer:
+          type: ["string", "null"]
+        implWhen:
+          type: ["string", "null"]
+        implWhere:
+          type: ["string", "null"]
+        implHow:
+          type: ["string", "null"]
+
+    WeeklyReflectionInput:
+      type: object
+      properties:
+        effort:
+          type: integer
+        focus:
+          type: integer
+        consistency:
+          type: integer
+        recovery:
+          type: integer
+        ownership:
+          type: integer
+        bestMoment:
+          type: string
+        biggestChallenge:
+          type: string
+        keyLearning:
+          type: string
+        focusAnswer:
+          type: string
+        implWhen:
+          type: string
+        implWhere:
+          type: string
+        implHow:
+          type: string
+        completed:
+          type: boolean
+
+    CompetitionReview:
+      type: object
+      required: [id, athleteId]
+      properties:
+        id:
+          type: integer
+        athleteId:
+          type: integer
+        phase:
+          type: ["string", "null"]
+        competitionName:
+          type: ["string", "null"]
+        competitionDate:
+          type: ["string", "null"]
+        opponent:
+          type: ["string", "null"]
+        result:
+          type: ["string", "null"]
+        performanceRating:
+          type: ["integer", "null"]
+        decisionRating:
+          type: ["integer", "null"]
+        emotionRating:
+          type: ["integer", "null"]
+        bestDecision:
+          type: ["string", "null"]
+        changeDecision:
+          type: ["string", "null"]
+        keyLearning:
+          type: ["string", "null"]
+        implWhen:
+          type: ["string", "null"]
+        implWhere:
+          type: ["string", "null"]
+        implHow:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+
+    CompetitionReviewInput:
+      type: object
+      properties:
+        phase:
+          type: string
+        competitionName:
+          type: string
+        competitionDate:
+          type: string
+        opponent:
+          type: string
+        result:
+          type: string
+        performanceRating:
+          type: integer
+        decisionRating:
+          type: integer
+        emotionRating:
+          type: integer
+        bestDecision:
+          type: string
+        changeDecision:
+          type: string
+        keyLearning:
+          type: string
+        implWhen:
+          type: string
+        implWhere:
+          type: string
+        implHow:
+          type: string
+
+    MonthlyCheckin:
+      type: object
+      required: [id, athleteId, monthNumber]
+      properties:
+        id:
+          type: integer
+        athleteId:
+          type: integer
+        monthNumber:
+          type: integer
+        completedAt:
+          type: ["string", "null"]
+        effortAvg:
+          type: ["number", "null"]
+        focusAvg:
+          type: ["number", "null"]
+        consistencyAvg:
+          type: ["number", "null"]
+        recoveryAvg:
+          type: ["number", "null"]
+        ownershipAvg:
+          type: ["number", "null"]
+        goal1Progress:
+          type: ["string", "null"]
+        goal2Progress:
+          type: ["string", "null"]
+        behaviour1Status:
+          type: ["string", "null"]
+        keyHabit:
+          type: ["string", "null"]
+        keyLearning:
+          type: ["string", "null"]
+        changeNextPhase:
+          type: ["string", "null"]
+        data:
+          type: object
+
+    MonthlyCheckinInput:
+      type: object
+      properties:
+        effortAvg:
+          type: number
+        focusAvg:
+          type: number
+        consistencyAvg:
+          type: number
+        recoveryAvg:
+          type: number
+        ownershipAvg:
+          type: number
+        goal1Progress:
+          type: string
+        goal2Progress:
+          type: string
+        behaviour1Status:
+          type: string
+        keyHabit:
+          type: string
+        keyLearning:
+          type: string
+        changeNextPhase:
+          type: string
+        data:
+          type: object
+        completed:
+          type: boolean
+
+    Capstone:
+      type: object
+      required: [id, athleteId]
+      properties:
+        id:
+          type: integer
+        athleteId:
+          type: integer
+        completedAt:
+          type: ["string", "null"]
+        physicalStart:
+          type: ["integer", "null"]
+        physicalNow:
+          type: ["integer", "null"]
+        technicalStart:
+          type: ["integer", "null"]
+        technicalNow:
+          type: ["integer", "null"]
+        tacticalStart:
+          type: ["integer", "null"]
+        tacticalNow:
+          type: ["integer", "null"]
+        psychologicalStart:
+          type: ["integer", "null"]
+        psychologicalNow:
+          type: ["integer", "null"]
+        lifestyleStart:
+          type: ["integer", "null"]
+        lifestyleNow:
+          type: ["integer", "null"]
+        goal1Achieved:
+          type: ["string", "null"]
+        goal2Achieved:
+          type: ["string", "null"]
+        goal3Achieved:
+          type: ["string", "null"]
+        evidenceCompetition:
+          type: ["string", "null"]
+        evidenceTechnical:
+          type: ["string", "null"]
+        evidenceBehaviour:
+          type: ["string", "null"]
+        fieldTest1:
+          type: ["boolean", "null"]
+        fieldTest2:
+          type: ["boolean", "null"]
+        fieldTestNotes:
+          type: ["string", "null"]
+        engagementRating:
+          type: ["integer", "null"]
+        awarenessRating:
+          type: ["integer", "null"]
+        decisionsRating:
+          type: ["integer", "null"]
+        accountabilityRating:
+          type: ["integer", "null"]
+        proudMoment:
+          type: ["string", "null"]
+        fellShort:
+          type: ["string", "null"]
+        learned:
+          type: ["string", "null"]
+        doDifferently:
+          type: ["string", "null"]
+        signatureName:
+          type: ["string", "null"]
+
+    CapstoneInput:
+      type: object
+      properties:
+        physicalStart:
+          type: integer
+        physicalNow:
+          type: integer
+        technicalStart:
+          type: integer
+        technicalNow:
+          type: integer
+        tacticalStart:
+          type: integer
+        tacticalNow:
+          type: integer
+        psychologicalStart:
+          type: integer
+        psychologicalNow:
+          type: integer
+        lifestyleStart:
+          type: integer
+        lifestyleNow:
+          type: integer
+        goal1Achieved:
+          type: string
+        goal2Achieved:
+          type: string
+        goal3Achieved:
+          type: string
+        evidenceCompetition:
+          type: string
+        evidenceTechnical:
+          type: string
+        evidenceBehaviour:
+          type: string
+        fieldTest1:
+          type: boolean
+        fieldTest2:
+          type: boolean
+        fieldTestNotes:
+          type: string
+        engagementRating:
+          type: integer
+        awarenessRating:
+          type: integer
+        decisionsRating:
+          type: integer
+        accountabilityRating:
+          type: integer
+        proudMoment:
+          type: string
+        fellShort:
+          type: string
+        learned:
+          type: string
+        doDifferently:
+          type: string
+        signatureName:
+          type: string
+        completed:
+          type: boolean
+
+    SleepLog:
+      type: object
+      required: [id, athleteId, logDate, rating]
+      properties:
+        id:
+          type: integer
+        athleteId:
+          type: integer
+        logDate:
+          type: string
+        rating:
+          type: integer
+        hoursSlept:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    SleepLogInput:
+      type: object
+      required: [logDate, rating]
+      properties:
+        logDate:
+          type: string
+        rating:
+          type: integer
+        hoursSlept:
+          type: number
+        notes:
+          type: string
+
+    ProgressSummary:
+      type: object
+      required: [currentPhase, currentWeek, weeksCompleted, reflectionsCompleted, phase0Complete, overallCompletionPct, streakWeeks, competitionReviewsCount, domainScores]
+      properties:
+        currentPhase:
+          type: integer
+        currentWeek:
+          type: integer
+        weeksCompleted:
+          type: integer
+        reflectionsCompleted:
+          type: integer
+        phase0Complete:
+          type: boolean
+        overallCompletionPct:
+          type: number
+        streakWeeks:
+          type: integer
+        competitionReviewsCount:
+          type: integer
+        month1CheckinComplete:
+          type: boolean
+        month2CheckinComplete:
+          type: boolean
+        capstoneComplete:
+          type: boolean
+        domainScores:
+          type: object
+          properties:
+            physical:
+              type: object
+              properties:
+                start:
+                  type: ["integer", "null"]
+                current:
+                  type: ["integer", "null"]
+            technical:
+              type: object
+              properties:
+                start:
+                  type: ["integer", "null"]
+                current:
+                  type: ["integer", "null"]
+            tactical:
+              type: object
+              properties:
+                start:
+                  type: ["integer", "null"]
+                current:
+                  type: ["integer", "null"]
+            psychological:
+              type: object
+              properties:
+                start:
+                  type: ["integer", "null"]
+                current:
+                  type: ["integer", "null"]
+            lifestyle:
+              type: object
+              properties:
+                start:
+                  type: ["integer", "null"]
+                current:
+                  type: ["integer", "null"]

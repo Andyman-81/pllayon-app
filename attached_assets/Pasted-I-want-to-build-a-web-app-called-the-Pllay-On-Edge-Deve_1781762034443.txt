@@ -1,0 +1,274 @@
+I want to build a web app called the Pllay On Edge Development Program — Athlete Edition.
+
+This is a 12-week athlete development tracking app for young athletes aged 10–18.
+
+Use the following as your complete design and content specification. Do not copy the HTML directly — rebuild it as a proper web app with persistent data storage, user accounts and a clean mobile-first UI.
+
+---
+
+TECH STACK
+
+- Frontend: React + Tailwind CSS
+- Backend: Supabase (auth + database)
+- Hosting: Vercel or Replit deployment
+- No external UI libraries — build clean custom components
+
+---
+
+BRAND
+
+Colours:
+- Green (primary): #10AC6E
+- Red: #FF4936
+- Blue: #0B7DF1
+- Yellow: #F5B809
+- Black: #111111
+- Dark: #1E293B
+- Grey: #64748B
+- Light grey: #F1F5F9
+
+Fonts:
+- Headings: Barlow Condensed ExtraBold (Google Fonts) — uppercase
+- Body: Inter Regular (Google Fonts)
+- Labels/mono: Space Mono (Google Fonts) — uppercase, tracked
+
+Phase colours:
+- Phase 0 — Establishment: #0B7DF1
+- Phase 1 — Foundation (Weeks 1–4): #10AC6E
+- Phase 2 — Intensification (Weeks 5–8): #F5B809
+- Phase 3 — Performance Expression (Weeks 9–12): #FF4936
+- Phase 4 — Capstone: #111111
+
+---
+
+USER FLOW
+
+1. Athlete creates account (name, DOB, sport, club, coach name, parent name)
+2. They are placed into Phase 0 — Establishment
+3. They complete Phase 0 modules before Week 1 unlocks
+4. Each Sunday, Week N unlocks and the weekly reflection is available
+5. After Week 4, Month 1 Check-In unlocks
+6. After Week 8, Month 2 Check-In unlocks
+7. After Week 12, Capstone unlocks
+8. All data is saved to Supabase and persists across sessions
+
+---
+
+DATABASE SCHEMA (Supabase)
+
+Table: athletes
+- id, created_at, name, dob, sport, club, coach_name, parent_name, program_start_date
+
+Table: phase0_modules
+- id, athlete_id, module_name, completed_at, data (jsonb)
+
+Table: weekly_reflections
+- id, athlete_id, week_number, completed_at
+- effort (1-5), focus (1-5), consistency (1-5), recovery (1-5), ownership (1-5)
+- best_moment (text), biggest_challenge (text), key_learning (text)
+- answer (text)
+- impl_when (text), impl_where (text), impl_how (text)
+
+Table: competition_reviews
+- id, athlete_id, phase, completed_at
+- competition_name, date, opponent, result
+- performance_rating (1-5), decision_rating (1-5), emotion_rating (1-5)
+- best_decision (text), change_decision (text), key_learning (text)
+- impl_when, impl_where, impl_how (text)
+
+Table: monthly_checkins
+- id, athlete_id, month_number, completed_at
+- effort_avg, focus_avg, consistency_avg, recovery_avg, ownership_avg (1-5)
+- goal1_progress, goal2_progress, behaviour1_status (text)
+- key_habit (text), key_learning (text), change_next_phase (text)
+
+Table: capstone
+- id, athlete_id, completed_at
+- domain scores: physical_start, physical_now, technical_start, technical_now, tactical_start, tactical_now, psychological_start, psychological_now, lifestyle_start, lifestyle_now (integer)
+- goal1_achieved, goal2_achieved, goal3_achieved (text)
+- evidence_competition, evidence_technical, evidence_behaviour (text)
+- field_test_1 (boolean), field_test_2 (boolean), field_test_notes (text)
+- engagement_rating, awareness_rating, decisions_rating, accountability_rating (1-5)
+- proud_moment, fell_short, learned, do_differently (text)
+
+Table: milestones
+- id, athlete_id, milestone_name, achieved_at
+
+---
+
+APP STRUCTURE — SCREENS
+
+1. ONBOARDING / REGISTRATION
+   - Full-screen dark cover (black #111111)
+   - Green accent strip at top
+   - "PLLAY ON / EDGE PROGRAM" in Barlow Condensed
+   - "Athlete Edition" label in green
+   - Form fields: name, DOB, sport, club, coach, parent
+   - "Begin Program" button in green
+   - Saves to Supabase athletes table
+
+2. DASHBOARD (home screen after login)
+   - Top: athlete name + current phase badge (coloured by phase)
+   - Phase progress bar showing which phase they are in
+   - Current week card (large, prominent)
+   - Quick stats: weeks completed, reflections done, completion %
+   - Phase timeline strip at bottom (5 phases, colour coded)
+   - Locked weeks shown as greyed out
+
+3. PHASE 0 — ESTABLISHMENT (must complete before Week 1)
+   - Module 0.1: Assessment Review
+     - Maturity stage selector (Pre-PHV / Circa-PHV / Post-PHV)
+     - Domain scorecard: Physical, Technical, Tactical, Psychological, Lifestyle — each scored /10 with target and gap
+     - Text fields: strengths, development areas, #1 priority
+   - Module 0.2: Competitive Advantage Map
+     - Same 5-domain table with priority action field
+   - Module 0.3: Profile + Values + Support Team
+     - Profile fields (auto-filled from registration where possible)
+     - Values: 3 value fields each with training/competition description
+     - Support team table: role / name / what I need from them
+   - Module 0.4: My Goals
+     - 3 outcome goal fields
+     - 2 behaviour goals each with WHEN / WHERE / HOW fields
+   - Module 0.5: Tennis Roadmap — Pathway Milestones
+     - Checklist of 11 milestones, each tappable with date field
+     - Trajectory fields: 12 months, 24 months
+   - Module 0.6: Commitment
+     - Digital signature (typed name as confirmation)
+     - Date
+     - "Start Week 1" button — only appears when all modules complete
+
+4. WEEKLY REFLECTION (one per week, unlocks each Sunday)
+   - Header: "WEEK N" large in phase colour
+   - Phase label and date range
+   - Mission box (coloured by phase, pre-filled with that week's mission text)
+   - Scorecard: 5 dimensions, 1–5 tap-to-select
+   - 3 text fields: best moment, biggest challenge, key learning
+   - Focus question (pre-filled, different each week)
+   - Answer field
+   - Implementation intention: WHEN / WHERE / HOW
+   - Save button → marks week complete
+
+   Week missions and focus questions (pre-fill these in the app):
+   Week 1 mission: "Complete every planned session. Do not miss one."
+   Week 1 question: "What is one habit I performed consistently this week without being reminded?"
+   Week 2 mission: "Track your recovery. Log your sleep every morning."
+   Week 2 question: "What did I do in training this week that I would not have done six months ago?"
+   Week 3 mission: "Show up to every session with a written training intention."
+   Week 3 question: "Where did I take ownership of my development without being told?"
+   Week 4 mission: "Complete your Month 1 Check-In at the end of this week."
+   Week 4 question: "What small change to my daily routine would make next week better?"
+   Week 5 mission: "Seek one difficult training moment this week — and study it."
+   Week 5 question: "What was the hardest moment this week and what did it reveal?"
+   Week 6 mission: "After every session, write one challenge and what you tried."
+   Week 6 question: "Describe a mistake you made. What did you try? What did you learn?"
+   Week 7 mission: "Identify your most common match mistake. Create a practice scenario to face it."
+   Week 7 question: "If you could change one competitive behaviour right now, what would it be?"
+   Week 8 mission: "Complete a full competition review. Do not skip the decision section."
+   Week 8 question: "Looking at the last four weeks: what pattern do you notice?"
+   Week 9 mission: "Write your performance plan before your most important session or match."
+   Week 9 question: "What does competing at your best actually look like — specifically?"
+   Week 10 mission: "Identify one competitive behaviour to express in your next match."
+   Week 10 question: "Describe a decision you made under pressure. Was it right?"
+   Week 11 mission: "Design and test your pre-competition routine this week."
+   Week 11 question: "What separates the athletes you want to beat from those you struggle against?"
+   Week 12 mission: "Complete the Capstone preparation. Review Months 1 and 2."
+   Week 12 question: "In 12 weeks, what has changed about how you approach your development?"
+
+5. COMPETITION REVIEW (available after any match, minimum 1 per phase)
+   - Match details: competition name, date, opponent, result
+   - 3 rating rows (1–5): overall performance, decision quality, emotional control
+   - Text fields: best decision, decision to change, key learning
+   - Implementation intention: WHEN / WHERE / HOW
+
+6. MONTH 1 CHECK-IN (unlocks after Week 4 completion)
+   - Scorecard averages for 4 dimensions (auto-calculated from Weeks 1–4 if data exists, otherwise manual)
+   - Goal progress table: goal / progress / status
+   - Text fields: key habit built, key learning, one change for Phase 2
+   - Coach notes field (read-only prompt: "your coach will complete this separately")
+
+7. MONTH 2 CHECK-IN (unlocks after Week 8 completion)
+   - Scorecard for: resilience, adaptability, confidence, ownership of mistakes
+   - Goal progress update
+   - Text fields: most valuable learning, how I've changed, main challenge for Phase 3
+   - Setback log: what happened / what I tried / what I learned (optional)
+
+8. PRE-COMPETITION PLAN (available in Phase 3)
+   - Match details: competition, date, opponent
+   - Text fields: primary tactic, emotional target, trigger points, plan for those moments
+   - Routine table: evening before / morning of / court warm-up physical / court warm-up technical / mental prep
+   - Pressure plan field
+
+9. CAPSTONE REVIEW (unlocks after Week 12 completion)
+   - Domain comparison: 5 domains, start vs now vs change
+   - Goal achievement: 3 goals with achieved/partially/not yet + evidence
+   - Evidence fields: competition result, technical improvement, behaviour change
+   - Field tests: 2 yes/no questions + notes field
+   - 4-dimension self-rating scorecard
+   - Reflection fields: proud moment, fell short, key learning, do differently
+   - Digital signature + date
+
+10. APPENDICES (always accessible from dashboard)
+    - Appendix A: Dynamic Warm-Up Protocol (static content, 3-step: mobility / activation / CNS)
+    - Appendix B: Gym S&C Session (static content, 4 blocks: power / lower / upper / injury prevention)
+    - Appendix C: Body Management (sleep log interactive — 7 days, rate each night; nutrition protocol static)
+    - Appendix D: Cooldown Protocol (static content, 3-step: breathing / stretching / session log)
+    - Sleep log in Appendix C should save to Supabase weekly
+
+11. PROGRESS SCREEN
+    - Overall completion % 
+    - Weeks completed vs total
+    - Reflections streak (consecutive Sundays)
+    - Domain scores chart (start vs current — bar chart)
+    - Competition reviews count
+    - Milestones achieved checklist
+
+---
+
+UX RULES
+
+- Mobile-first. Designed for a phone screen. All inputs large enough to tap comfortably.
+- Phase colour system is the primary navigation signal. Every screen shows the current phase colour.
+- Locked content is visible but greyed out with a lock icon — not hidden entirely.
+- Every form auto-saves as the user types (debounced 2 seconds).
+- Completed items show a green tick. Incomplete show an empty circle.
+- The weekly reflection must show the current week's mission prominently — it is the most important UI element on that screen.
+- Implementation intention fields (WHEN / WHERE / HOW) always appear as a grouped trio with grey background.
+- Never use motivational language. Direct and evidence-based only.
+- No emojis in content. Clean, modern, premium.
+
+---
+
+CONTENT RULES
+
+- All mission text and focus questions are pre-loaded in the app (listed above) — the athlete cannot edit them
+- The athlete's written responses are the only user-generated content
+- Coach name is displayed as a reference but coaches do not have app access in this version (V1)
+- Parent name is stored but parents do not have app access in V1
+- All data belongs to the athlete account
+
+---
+
+BUILD PRIORITY ORDER
+
+1. Supabase setup (auth + all tables)
+2. Registration + onboarding flow
+3. Dashboard with phase/week logic
+4. Phase 0 modules (all 6)
+5. Weekly reflection (all 12 weeks with correct missions/questions)
+6. Monthly check-ins (Month 1 + Month 2)
+7. Competition review
+8. Capstone review
+9. Pre-competition plan
+10. Appendices (static content)
+11. Progress screen
+12. Polish: animations, transitions, loading states
+
+---
+
+DO NOT:
+- Use a generic template or starter kit that doesn't match the brand
+- Use any motivational or generic sports app language
+- Skip the phase colour system — it is the core navigation mechanic
+- Build a generic journal or diary — this is a structured developmental curriculum
+
+This is a premium product for a sports science company. Build it accordingly.
