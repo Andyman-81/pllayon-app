@@ -1,0 +1,707 @@
+Build a web app called Pllay On — Edge Development Program (Athlete Edition).
+
+This is a 12-week structured athlete development tracking app for athletes aged 10–18.
+
+The HTML workbook already exists as a design spec. Your job is to rebuild it as a proper
+persistent web app using React + Supabase. Every component must match the HTML spec exactly —
+same visual language, same interaction patterns, same content structure.
+
+Do not invent a new design. Replicate the HTML design system precisely in React.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TECH STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- React 18 (Vite)
+- Tailwind CSS (for layout utilities only — all component styling via CSS custom properties below)
+- Supabase (auth + PostgreSQL database)
+- React Router v6
+- No component libraries (no MUI, no shadcn, no Chakra)
+- Google Fonts: Barlow Condensed, Inter, Space Mono
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN SYSTEM — COPY EXACTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Paste this into your global CSS (index.css):
+
+:root {
+  --green:  #10AC6E;
+  --red:    #FF4936;
+  --blue:   #0B7DF1;
+  --yellow: #F5B809;
+  --black:  #111111;
+  --white:  #FFFFFF;
+  --dark:   #1E293B;
+  --mid:    #334155;
+  --grey:   #64748B;
+  --grey2:  #CBD5E1;
+  --grey1:  #F1F5F9;
+  --ink:    #0F172A;
+  --ph0:    #0B7DF1;
+  --ph1:    #10AC6E;
+  --ph2:    #F5B809;
+  --ph3:    #FF4936;
+  --ph4:    #111111;
+  --r:      8px;
+  --font-d: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  --font-b: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --font-m: 'Space Mono', 'Courier New', monospace;
+}
+
+body {
+  font-family: var(--font-b);
+  background: #FAFBFC;
+  color: var(--dark);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPONENT LIBRARY — BUILD THESE EXACTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Build each of these as a reusable React component. The CSS below is the exact spec
+from the HTML workbook — implement it faithfully.
+
+
+── 1. CALLOUT COMPONENT ──────────────────
+CSS:
+  .callout { border-left: 4px solid; background: var(--grey1); padding: 14px 18px;
+             border-radius: 0 var(--r) var(--r) 0; margin: 16px 0; }
+  .callout strong { display: block; font-size: 13px; color: var(--dark); margin-bottom: 3px; }
+  .callout p { font-size: 13px; color: var(--grey); line-height: 1.55; font-style: italic; }
+
+React:
+  <Callout title="Title text" colour="#10AC6E">Body text here</Callout>
+  Props: title (string), colour (hex string, defaults to --green), children
+
+
+── 2. CHECKLIST ITEM COMPONENT ───────────────────────
+CSS:
+  .chk { display: grid; grid-template-columns: 28px 1fr auto; align-items: start;
+         border-bottom: 1px solid var(--grey1); padding: 11px 0; }
+  .chk-box { width: 20px; height: 20px; border: 2px solid var(--grey2);
+             border-radius: 4px; cursor: pointer; transition: all .15s;
+             display: flex; align-items: center; justify-content: center;
+             font-size: 12px; color: #fff; margin-top: 2px; }
+  .chk-box:hover { border-color: var(--green); background: rgba(16,172,110,.06); }
+  .chk-box.on { background: var(--green); border-color: var(--green); }
+  .chk-task { font-weight: 600; font-size: 13.5px; color: var(--dark); margin-bottom: 2px; }
+  .chk-detail { font-size: 12px; color: var(--grey); line-height: 1.45; font-style: italic; }
+  .chk-when { font-family: var(--font-m); font-size: 10px; letter-spacing: .06em;
+              color: var(--grey); white-space: nowrap; padding-top: 3px;
+              text-align: right; padding-left: 10px; }
+
+React:
+  <ChecklistItem task="Task text" detail="Optional detail" when="Before Wk 1"
+                 checked={bool} onToggle={fn} />
+  State: checked boolean, persisted to Supabase on toggle
+
+
+── 3. RATING BOX (rb) — for scorecards AND standalone ratings ─────────────────
+CSS:
+  .rb { width: 36px; height: 36px; border: 1.5px solid var(--grey2);
+        border-radius: 5px; background: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-family: var(--font-m); font-size: 12px; color: var(--grey);
+        cursor: pointer; transition: all .15s; margin: 0 auto; }
+  .rb:hover { border-color: var(--green); color: var(--green); }
+  .rb.on { border-color: var(--green); background: var(--green); color: #fff; font-weight: 700; }
+
+Behaviour: clicking box N sets boxes 1–N to .on (cumulative fill, not single select).
+On mobile: make touch targets minimum 44×44px by wrapping in a larger hit area.
+
+React:
+  <RatingBox value={n} selected={currentValue >= n} onSelect={fn} />
+
+
+── 4. SCORECARD COMPONENT ────────────────────────────
+CSS:
+  .scorecard { border: 1px solid var(--grey1); border-radius: var(--r);
+               overflow: hidden; margin: 16px 0 20px; }
+  .sc-head { display: grid; grid-template-columns: 1fr repeat(5,42px);
+             background: var(--dark); padding: 9px 14px; gap: 4px; }
+  .sc-head span { font-family: var(--font-m); font-size: 9px; font-weight: 700;
+                  letter-spacing: .1em; text-transform: uppercase;
+                  color: rgba(255,255,255,.65); text-align: center; }
+  .sc-head span:first-child { text-align: left; }
+  .sc-row { display: grid; grid-template-columns: 1fr repeat(5,42px);
+            padding: 9px 14px; gap: 4px; border-bottom: 1px solid var(--grey1);
+            align-items: center; }
+  .sc-row:nth-child(even) { background: var(--grey1); }
+  .sc-label { font-size: 13px; font-weight: 600; color: var(--dark); }
+
+Dimensions are 5 rows × 5 columns (ratings 1–5).
+Each row label is a quality name. Each cell is an RatingBox component.
+
+React:
+  <Scorecard
+    rows={['Effort','Focus','Consistency','Recovery','Ownership']}
+    values={{ Effort: 3, Focus: 2, ... }}
+    onChange={fn}
+  />
+
+
+── 5. WRITE FIELD COMPONENT ──────────────────────────
+CSS:
+  .wf { margin: 14px 0; }
+  .wl-label { font-family: var(--font-m); font-size: 10px; letter-spacing: .16em;
+              text-transform: uppercase; color: var(--grey); font-weight: 700; margin-bottom: 7px; }
+  .wl { height: 38px; border-bottom: 1.5px solid var(--grey1);
+        margin-bottom: 3px; width: 100%; }
+
+In the web app, each .wl becomes a <textarea> with:
+  - min-height: 38px
+  - auto-grow on input (resize: none, overflow hidden, adjust height to content)
+  - border: none; border-bottom: 1.5px solid var(--grey1)
+  - background: transparent
+  - font-family: var(--font-b); font-size: 14px; color: var(--dark)
+  - padding: 4px 0
+  - width: 100%
+  - outline: none
+  - On focus: border-bottom-color changes to the current phase colour
+
+React:
+  <WriteField label="Best training moment:" lines={2} value={val} onChange={fn} phaseColour="#10AC6E" />
+  lines prop = number of textarea rows to render
+
+
+── 6. IMPLEMENTATION INTENTION COMPONENT ────────────────
+CSS:
+  .impl-wrap { margin: 16px 0; }
+  .impl-label-row { font-family: var(--font-m); font-size: 10px; letter-spacing: .14em;
+                    text-transform: uppercase; font-weight: 700; margin-bottom: 6px;
+                    color: currentPhaseColour; }
+  .impl { display: grid; grid-template-columns: repeat(3,1fr);
+          gap: 10px; padding: 14px; background: var(--grey1); border-radius: var(--r); }
+  .impl-col { display: flex; flex-direction: column; gap: 5px; }
+  .impl-label { font-family: var(--font-m); font-size: 9px; letter-spacing: .16em;
+                text-transform: uppercase; color: var(--grey); font-weight: 700; }
+
+Three columns: WHEN / WHERE / HOW. Each is a textarea (same style as WriteField above).
+
+React:
+  <ImplIntention
+    label="Next week I will:"
+    values={{ when: '', where: '', how: '' }}
+    onChange={fn}
+    phaseColour="#10AC6E"
+  />
+
+
+── 7. MISSION BOX COMPONENT ────────────────────────────
+CSS:
+  .mission-box { border-left: 4px solid; border-radius: 0 6px 6px 0;
+                 padding: 13px 16px; margin-bottom: 18px; }
+  .mission-label { font-family: var(--font-m); font-size: 9px; letter-spacing: .18em;
+                   text-transform: uppercase; font-weight: 700; margin-bottom: 4px; opacity: .8; }
+  .mission-text { font-size: 14px; font-weight: 600; line-height: 1.5; }
+
+Background is phaseColour + '14' (8% opacity hex). Border and label are phaseColour.
+Content is not editable — it is pre-loaded from the week data.
+
+React:
+  <MissionBox mission="Complete every planned session." phaseColour="#10AC6E" />
+
+
+── 8. FOCUS QUESTION COMPONENT ─────────────────────────
+CSS:
+  .focus-q { border-left: 3px solid; border-radius: 0 6px 6px 0;
+             padding: 13px 16px; margin: 14px 0; background: var(--grey1); }
+  .fq-label { font-family: var(--font-m); font-size: 9px; letter-spacing: .18em;
+              text-transform: uppercase; font-weight: 700; display: block;
+              margin-bottom: 5px; opacity: .8; }
+  .focus-q p { font-size: 14px; color: var(--dark); line-height: 1.5; }
+
+React:
+  <FocusQuestion question="What is one habit I performed consistently..." phaseColour="#10AC6E" />
+
+
+── 9. WEEK CARD COMPONENT ──────────────────────────────
+CSS:
+  .week-card { background: #fff; border: 1px solid var(--grey1);
+               border-radius: 10px; overflow: hidden; margin-bottom: 24px;
+               box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .week-header { padding: 16px 22px; display: flex; align-items: center;
+                 gap: 14px; background: var(--grey1);
+                 border-bottom: 3px solid currentPhaseColour; }
+  .week-num { font-family: var(--font-d); font-weight: 800; font-size: 32px;
+              text-transform: uppercase; line-height: 1; color: currentPhaseColour; }
+  .week-meta { font-family: var(--font-m); font-size: 10px; letter-spacing: .12em;
+               text-transform: uppercase; color: var(--grey); flex: 1; }
+  .week-body { padding: 22px; }
+
+React:
+  <WeekCard weekNum={1} phase={1} phaseColour="#10AC6E" weekData={weekData}>
+    <MissionBox ... />
+    <Scorecard ... />
+    <WriteField ... /> (×3)
+    <FocusQuestion ... />
+    <WriteField label="My answer:" lines={2} />
+    <ImplIntention ... />
+  </WeekCard>
+
+
+── 10. PHASE DIVIDER COMPONENT ─────────────────────────
+CSS:
+  .phase-div { padding: 52px 32px 44px; position: relative; overflow: hidden;
+               background: currentPhaseColour; }
+  .ghost-num { position: absolute; top: -20px; right: -10px;
+               font-family: var(--font-d); font-weight: 800; font-size: 150px;
+               line-height: 1; color: rgba(255,255,255,.06);
+               letter-spacing: -.04em; user-select: none; pointer-events: none; }
+  .phase-eyebrow { font-family: var(--font-m); font-size: 10px; letter-spacing: .2em;
+                   text-transform: uppercase; color: rgba(255,255,255,.45); margin-bottom: 8px; }
+  .phase-title { font-family: var(--font-d); font-weight: 800;
+                 font-size: clamp(38px,5vw,66px); text-transform: uppercase;
+                 letter-spacing: -.01em; line-height: .9; color: #fff; margin-bottom: 12px; }
+  .phase-subtitle { font-size: 15px; color: rgba(255,255,255,.55);
+                    max-width: 480px; line-height: 1.6; margin-bottom: 20px; }
+  .phase-pill { padding: 5px 14px; background: rgba(255,255,255,.1);
+                border-radius: 100px; font-family: var(--font-m); font-size: 10px;
+                letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+
+React:
+  <PhaseDivider num={1} name="Foundation"
+    subtitle="Weeks 1–4. Build the habits. Establish the rhythms. Own the process."
+    colour="#10AC6E"
+    pills={['Consistency','Ownership','Habits','Training Intent','Recovery']} />
+
+
+── 11. RATING ROW COMPONENT (standalone, used in competition review) ──────────
+CSS:
+  .rating-row { margin: 12px 0; }
+  .r-label { font-size: 13.5px; font-weight: 600; color: var(--dark); margin-bottom: 9px; }
+  .r-boxes { display: flex; gap: 5px; }
+  .r-scale { display: flex; justify-content: space-between;
+             font-family: var(--font-m); font-size: 10px;
+             color: var(--grey); letter-spacing: .06em; margin-top: 4px; }
+
+React:
+  <RatingRow label="Overall performance quality" lo="Well below level" hi="Best performance"
+             value={val} onChange={fn} />
+
+
+── 12. WORKOUT CARD COMPONENT (Appendices) ──────────────
+CSS:
+  .workout-card { background: #fff; border: 1px solid var(--grey1);
+                  border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+  .workout-header { padding: 14px 20px; display: flex; align-items: center;
+                    gap: 12px; border-bottom: 1px solid var(--grey1); }
+  .workout-badge { padding: 4px 12px; border-radius: 100px;
+                   font-family: var(--font-m); font-size: 10px; font-weight: 700;
+                   letter-spacing: .1em; text-transform: uppercase; color: #fff; }
+  .workout-title { font-weight: 700; font-size: 15px; color: var(--dark); }
+  .workout-time { font-family: var(--font-m); font-size: 11px;
+                  color: var(--grey); margin-left: auto; }
+  .exercise-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+                  gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--grey1);
+                  font-size: 13px; align-items: center; }
+  .ex-name { font-weight: 600; color: var(--dark); }
+  .ex-detail { color: var(--grey); text-align: center;
+               font-family: var(--font-m); font-size: 11px; }
+
+React:
+  <WorkoutCard badge="Step 1" badgeColour="#0B7DF1" title="Mobility — 4 minutes" time="Ground-based">
+    <ExerciseRow name="World's Greatest Stretch" sets="1×6 each side" cue="Elbow to floor" />
+  </WorkoutCard>
+
+
+── 13. DATA TABLE COMPONENT ────────────────────────────
+CSS:
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px;
+          margin: 16px 0 22px; border-radius: var(--r);
+          overflow: hidden; border: 1px solid var(--grey1); }
+  thead tr th { color: #fff; padding: 10px 14px; text-align: left;
+                font-family: var(--font-m); font-size: 10px;
+                letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--grey1);
+       vertical-align: top; line-height: 1.5; color: var(--dark); }
+  tr:nth-child(even) td { background: var(--grey1); }
+
+React:
+  <DataTable headers={['Domain','Now /10','Target','Gap','Priority Action']}
+             rows={[['Physical','','','',''],...]}
+             headerColour="#111111" />
+
+
+── 14. MODULE HEADER COMPONENT ─────────────────────────
+CSS:
+  .mod-header { margin-bottom: 24px; padding-bottom: 16px;
+                border-bottom: 1px solid var(--grey1); }
+  .mod-eyebrow { font-family: var(--font-m); font-size: 10px;
+                 letter-spacing: .18em; text-transform: uppercase; margin-bottom: 5px; }
+  .mod-title { font-family: var(--font-d); font-weight: 800;
+               font-size: clamp(22px,3vw,30px); text-transform: uppercase;
+               letter-spacing: -.01em; color: var(--black); line-height: .95; }
+  .mod-desc { font-size: 14px; color: var(--grey); line-height: 1.6;
+              margin-top: 8px; max-width: 640px; }
+
+React:
+  <ModuleHeader eyebrow="MODULE 0.1" title="Assessment Review"
+    desc="Transfer your Pllay On results here before completing anything else."
+    colour="#0B7DF1" />
+
+
+── 15. NAVBAR COMPONENT ────────────────────────────────
+CSS:
+  .nav { position: fixed; top: 0; left: 0; right: 0; height: 52px;
+         backdrop-filter: blur(16px); border-bottom: 4px solid currentPhaseColour;
+         z-index: 1000; display: flex; align-items: center;
+         padding: 0 24px; background: rgba(15,23,42,.97); }
+  .nav-brand { font-family: var(--font-d); font-weight: 800; font-size: 17px;
+               color: var(--green); letter-spacing: .06em; text-transform: uppercase;
+               margin-right: 20px; }
+  .nav-wkb { font-family: var(--font-m); font-size: 10px; letter-spacing: .18em;
+             text-transform: uppercase; padding: 4px 12px; border-radius: 100px;
+             color: #fff; margin-right: 20px; font-weight: 700;
+             background: currentPhaseColour; }
+
+React:
+  <Navbar phaseColour="#10AC6E" currentSection="Phase 1" athleteName="Jake" />
+
+
+── 16. PROGRESS TRACKER WIDGET ────────────────────────
+CSS:
+  .progress { position: fixed; bottom: 20px; right: 20px;
+              background: rgba(15,23,42,.96); border: 1px solid rgba(255,255,255,.1);
+              border-radius: 10px; padding: 14px 18px; z-index: 900;
+              min-width: 164px; backdrop-filter: blur(12px); }
+  .p-bar-out { height: 4px; background: rgba(255,255,255,.1);
+               border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+  .p-bar-in { height: 100%; background: currentPhaseColour;
+              border-radius: 2px; transition: width .3s; }
+
+React: <ProgressWidget completed={done} total={total} phaseColour="#10AC6E" />
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUPABASE DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run these in the Supabase SQL editor:
+
+-- Athletes
+create table athletes (
+  id uuid primary key references auth.users(id),
+  created_at timestamptz default now(),
+  name text, dob date, sport text default 'Tennis',
+  club text, coach_name text, parent_name text,
+  program_start_date date
+);
+
+-- Phase 0 module completion + data
+create table phase0_data (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  module text not null,
+  data jsonb default '{}',
+  completed_at timestamptz,
+  updated_at timestamptz default now()
+);
+
+-- Weekly reflections
+create table weekly_reflections (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null check (week_number between 1 and 12),
+  effort int check (effort between 1 and 5),
+  focus int check (focus between 1 and 5),
+  consistency int check (consistency between 1 and 5),
+  recovery int check (recovery between 1 and 5),
+  ownership int check (ownership between 1 and 5),
+  best_moment text, biggest_challenge text, key_learning text,
+  focus_answer text,
+  impl_when text, impl_where text, impl_how text,
+  completed_at timestamptz,
+  updated_at timestamptz default now(),
+  unique(athlete_id, week_number)
+);
+
+-- Competition reviews
+create table competition_reviews (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  phase int, created_at timestamptz default now(),
+  competition_name text, match_date date, opponent text, result text,
+  performance_rating int, decision_rating int, emotion_rating int,
+  best_decision text, change_decision text, key_learning text,
+  impl_when text, impl_where text, impl_how text
+);
+
+-- Monthly check-ins
+create table monthly_checkins (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  month_number int not null check (month_number in (1,2)),
+  effort_avg int, focus_avg int, consistency_avg int, recovery_avg int,
+  resilience int, adaptability int, confidence int, ownership_mistakes int,
+  goal1_progress text, goal2_progress text, behaviour1_status text,
+  key_habit text, key_learning text, change_next_phase text,
+  setback_what text, setback_tried text, setback_learned text,
+  completed_at timestamptz,
+  unique(athlete_id, month_number)
+);
+
+-- Pathway milestones
+create table milestones (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  milestone_name text not null,
+  achieved_at date,
+  unique(athlete_id, milestone_name)
+);
+
+-- Capstone
+create table capstone (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  physical_start int, physical_now int,
+  technical_start int, technical_now int,
+  tactical_start int, tactical_now int,
+  psychological_start int, psychological_now int,
+  lifestyle_start int, lifestyle_now int,
+  goal1_achieved text, goal2_achieved text, goal3_achieved text,
+  evidence_competition text, evidence_technical text, evidence_behaviour text,
+  field_test_1 boolean, field_test_2 boolean, field_test_notes text,
+  engagement_rating int, awareness_rating int,
+  decisions_rating int, accountability_rating int,
+  proud_moment text, fell_short text, key_learning text, do_differently text,
+  athlete_signature text, completed_at timestamptz
+);
+
+-- Sleep log (Appendix C)
+create table sleep_log (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  log_date date not null,
+  bedtime text, wake_time text,
+  sleep_quality int check (sleep_quality between 1 and 5),
+  training_energy int check (training_energy between 1 and 5),
+  unique(athlete_id, log_date)
+);
+
+-- Row Level Security: enable on all tables
+-- Each athlete can only read/write their own rows
+alter table athletes enable row level security;
+alter table phase0_data enable row level security;
+alter table weekly_reflections enable row level security;
+alter table competition_reviews enable row level security;
+alter table monthly_checkins enable row level security;
+alter table milestones enable row level security;
+alter table capstone enable row level security;
+alter table sleep_log enable row level security;
+
+-- RLS policies (repeat pattern for each table)
+create policy "athletes_own" on athletes
+  using (auth.uid() = id);
+create policy "phase0_own" on phase0_data
+  using (auth.uid() = athlete_id);
+create policy "reflections_own" on weekly_reflections
+  using (auth.uid() = athlete_id);
+create policy "comp_reviews_own" on competition_reviews
+  using (auth.uid() = athlete_id);
+create policy "checkins_own" on monthly_checkins
+  using (auth.uid() = athlete_id);
+create policy "milestones_own" on milestones
+  using (auth.uid() = athlete_id);
+create policy "capstone_own" on capstone
+  using (auth.uid() = athlete_id);
+create policy "sleep_own" on sleep_log
+  using (auth.uid() = athlete_id);
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROUTING STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/                     → redirect to /dashboard if logged in, else /register
+/register             → Registration + onboarding
+/login                → Login
+/dashboard            → Main dashboard (home after login)
+/phase/0              → Phase 0 modules (all 6 sub-modules on one scrollable page)
+/phase/0/module/:id   → Optional: individual module if you prefer separate pages
+/week/:num            → Weekly reflection for week N (1–12)
+/competition-review   → New competition review form
+/competition-review/:id → Edit existing review
+/checkin/:month       → Monthly check-in (1 or 2)
+/pre-comp             → Pre-competition plan (Phase 3 only)
+/capstone             → Capstone review
+/appendix/warmup      → Appendix A: Dynamic Warm-Up
+/appendix/gym         → Appendix B: Gym S&C Session
+/appendix/body        → Appendix C: Body Management + sleep log
+/appendix/cooldown    → Appendix D: Cooldown Protocol
+/progress             → Progress summary screen
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE + WEEK UNLOCK LOGIC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Implement this logic in a useProgress() hook:
+
+const getPhase = (weekNum) => {
+  if (weekNum === 0) return 0;
+  if (weekNum <= 4) return 1;
+  if (weekNum <= 8) return 2;
+  if (weekNum <= 12) return 3;
+  return 4;
+};
+
+const getPhaseColour = (phase) => {
+  return ['#0B7DF1','#10AC6E','#F5B809','#FF4936','#111111'][phase];
+};
+
+Unlock rules:
+- Phase 0: always accessible
+- Week 1: unlocks when ALL Phase 0 modules have completed_at set
+- Week N (2–12): unlocks when Week N-1 has completed_at set
+- Month 1 Check-In: unlocks when Week 4 has completed_at set
+- Month 2 Check-In: unlocks when Week 8 has completed_at set
+- Pre-Competition Plan: unlocks when Phase 3 begins (Week 9 unlocked)
+- Capstone: unlocks when Week 12 has completed_at set
+
+Locked items: visible on dashboard with a lock icon (🔒) and grey opacity (0.4).
+Not hidden — visible but not clickable.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUTO-SAVE BEHAVIOUR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every form auto-saves to Supabase with a 1500ms debounce after the last keypress.
+Show a small "Saving..." indicator in the top-right of each form section.
+On successful save: "Saved ✓" in green (#10AC6E) for 2 seconds then fade.
+Never require a manual save button for text fields.
+Rating boxes and checkboxes save immediately on click (no debounce).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WEEK CONTENT DATA (pre-load in app)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Store this as a constant in weekData.js. Never fetch from DB — it is fixed content.
+
+export const WEEK_DATA = [
+  { week: 1, phase: 1, colour: '#10AC6E',
+    mission: 'Complete every planned session. Do not miss one. If something forces a change, reschedule within 48 hours.',
+    question: 'What is one habit I performed consistently this week without being reminded?' },
+  { week: 2, phase: 1, colour: '#10AC6E',
+    mission: 'Track your recovery. Log your sleep every morning this week. Notice the connection between sleep and training quality.',
+    question: 'What did I do in training this week that I would not have done six months ago?' },
+  { week: 3, phase: 1, colour: '#10AC6E',
+    mission: 'Show up to every session with a written training intention. Before you start: "Today I am working on ___."',
+    question: 'Where did I take ownership of my development — not because a coach told me to?' },
+  { week: 4, phase: 1, colour: '#10AC6E',
+    mission: 'Complete your Month 1 Check-In at the end of this week. Review Weeks 1–3 before you start.',
+    question: 'What small change to my daily routine would make next week better?' },
+  { week: 5, phase: 2, colour: '#F5B809',
+    mission: 'Seek one difficult training moment this week — not to survive it, but to study it. What does it tell you?',
+    question: 'What was the hardest moment in training this week, and what did it reveal about where you need to develop?' },
+  { week: 6, phase: 2, colour: '#F5B809',
+    mission: 'After every training session this week, write one specific thing that challenged you and what you tried in response.',
+    question: 'Describe a mistake you made this week. What did you try? What did you learn?' },
+  { week: 7, phase: 2, colour: '#F5B809',
+    mission: 'Identify your most common mistake in matches right now. Create a practice scenario that makes you face it. Discuss with your coach.',
+    question: 'If you could change one competitive behaviour right now — not physical ability, but behaviour — what would it be?' },
+  { week: 8, phase: 2, colour: '#F5B809',
+    mission: 'Complete a full competition review this week. Do not skip the decision-making section. That is where the real learning is.',
+    question: 'Looking at the last four weeks: what pattern do you notice? What does it tell you?' },
+  { week: 9, phase: 3, colour: '#FF4936',
+    mission: 'Before your most important session or match this week, write your performance plan: court strategy, emotional approach, physical focus. Review it after.',
+    question: 'What does "competing at my best" actually look like — specifically, not generally?' },
+  { week: 10, phase: 3, colour: '#FF4936',
+    mission: 'Identify one competitive behaviour you want to express in your next match. Not a technical goal — a behavioural one. Act on it.',
+    question: 'Describe one decision you made under pressure this week. Was it right? What would you do differently?' },
+  { week: 11, phase: 3, colour: '#FF4936',
+    mission: 'Design your pre-competition routine this week and test it. It should be no longer than 60 minutes. Cover physical, technical and mental preparation.',
+    question: 'What competitive behaviour separates the athletes you want to beat from those you currently struggle against?' },
+  { week: 12, phase: 3, colour: '#FF4936',
+    mission: 'Complete the Capstone preparation. Review your Month 1 and Month 2 Check-Ins. Identify three pieces of evidence of improvement. Bring them to your review session.',
+    question: 'In 12 weeks, what has changed — not about your results, but about how you approach your development?' },
+];
+
+export const MILESTONES = [
+  'Regular local competition and match play',
+  'First state-level competition entry',
+  'First interstate training exposure or tour',
+  'First state ranking event',
+  'First national ranking event',
+  'First Tennis Australia developmental program',
+  'First national tournament entry',
+  'First national ranking achieved',
+  'First Tennis Australia pathway event',
+  'First international exposure (training or competition)',
+  'First ITF junior tournament entry',
+];
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DASHBOARD SCREEN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Layout (top to bottom):
+1. Navbar — phase colour border, athlete name, current phase badge
+2. Current week card — large, prominent, phase colour, shows mission preview
+3. Quick stats row — 4 stat chips: Weeks Done / Reflections / Streak / Completion %
+4. Phase progress strip — 5 phases as horizontal tabs, current highlighted
+5. Upcoming weeks grid — next 3 unlocked weeks as cards, locked weeks greyed
+6. Quick links row — Competition Review / Appendices / Progress
+
+Current week card CSS should match .week-card spec above but larger:
+  - Week number: 48px Barlow Condensed
+  - Mission preview: first 80 chars of mission text + "..."
+  - "Open Reflection →" button in phase colour
+  - Phase colour left border 6px
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTENT RULES — NON-NEGOTIABLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- No motivational language. No "You've got this!" or "Keep going champ!"
+- No emojis in content (only lock icon 🔒 for locked items)
+- Mission text and focus questions are read-only. Athletes cannot edit them.
+- All field labels in Space Mono, uppercase, tracked
+- Phase colour changes ALL accents on the current screen simultaneously
+  (nav border, rating boxes on-state, write field focus border,
+  mission box border, section headers, progress bar)
+- Barlow Condensed always uppercase for headings
+- Inter for all body text and textarea inputs
+- Space Mono for all labels, eyebrows, metadata
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUILD ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Supabase project setup — create all tables with RLS
+2. Environment variables — VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+3. All 16 components (build + test each in isolation)
+4. Auth flow — register, login, logout, session persistence
+5. Registration screen — matches cover page design spec
+6. Dashboard
+7. Phase 0 (all modules)
+8. Week 1 reflection (prove the pattern works, then duplicate for 2–12)
+9. Monthly check-ins
+10. Competition review
+11. Capstone
+12. Pre-competition plan
+13. Appendices (static content, sleep log interactive)
+14. Progress screen
+15. Polish: loading states, error states, empty states, mobile touch targets
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Do not use any pre-built UI component library
+- Do not change the colour system
+- Do not change the typography system
+- Do not add features not listed here
+- Do not use localStorage for any user data — Supabase only
+- Do not hide locked content — show it greyed out with a lock icon
+- Do not add motivational copy
+- Do not use a generic sports app template
+- Do not make the rating boxes single-select — they must be cumulative fill (1–N)
