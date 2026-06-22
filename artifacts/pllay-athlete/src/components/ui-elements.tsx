@@ -1,111 +1,303 @@
-import React from "react";
-import { Check, Lock } from "lucide-react";
-import { PHASE_COLORS, PHASE_LABELS } from "@/lib/constants";
+import React, { useRef, useEffect, useCallback } from 'react';
+import { PHASE_COLORS, PHASE_LABELS } from '@/lib/constants';
 
-export function PhaseBadge({ phase }: { phase: number }) {
-  const color = PHASE_COLORS[phase] || PHASE_COLORS[0];
-  const label = PHASE_LABELS[phase] || "Unknown";
+/* ── RatingBox ─────────────────────────────────────────── */
+interface RatingBoxProps {
+  value: number;
+  selected: boolean;
+  onSelect: (v: number) => void;
+  phaseColour?: string;
+}
 
+export function RatingBox({ value, selected, onSelect, phaseColour }: RatingBoxProps) {
+  const colour = phaseColour ?? '#10AC6E';
   return (
-    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border" style={{ borderColor: color, backgroundColor: `${color}15` }}>
-      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-      <span className="font-mono text-xs font-bold uppercase tracking-widest" style={{ color }}>PHASE {phase}: {label}</span>
+    <button
+      className={`rb${selected ? ' on' : ''}`}
+      style={selected ? { borderColor: colour, background: colour, color: '#fff' } : {}}
+      onClick={() => onSelect(value)}
+      type="button"
+      aria-label={`Rating ${value}`}
+    >
+      {value}
+    </button>
+  );
+}
+
+/* ── ScorecardTable ───────────────────────────────────── */
+interface ScorecardTableProps {
+  rows: string[];
+  values: Record<string, number>;
+  onChange: (rowLabel: string, value: number) => void;
+  phaseColour?: string;
+}
+
+export function ScorecardTable({ rows, values, onChange, phaseColour }: ScorecardTableProps) {
+  const colour = phaseColour ?? '#10AC6E';
+  return (
+    <div className="scorecard">
+      <div className="sc-head">
+        <span>Domain</span>
+        {[1, 2, 3, 4, 5].map(n => <span key={n}>{n}</span>)}
+      </div>
+      {rows.map((row, i) => (
+        <div key={row} className="sc-row">
+          <span className="sc-label">{row}</span>
+          {[1, 2, 3, 4, 5].map(n => (
+            <RatingBox
+              key={n}
+              value={n}
+              selected={(values[row] ?? 0) >= n}
+              onSelect={(v) => onChange(row, v)}
+              phaseColour={colour}
+            />
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
 
-export function ProgressBar({ current, total, color }: { current: number, total: number, color?: string }) {
-  const percentage = Math.min(100, Math.max(0, (current / total) * 100));
+/* ── WriteField ───────────────────────────────────────── */
+interface WriteFieldProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  phaseColour?: string;
+  lines?: number;
+  placeholder?: string;
+}
+
+export function WriteField({ label, value, onChange, phaseColour, lines = 1, placeholder }: WriteFieldProps) {
+  const colour = phaseColour ?? '#10AC6E';
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const autoGrow = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => { autoGrow(); }, [value, autoGrow]);
+
   return (
-    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-      <div 
-        className="h-full transition-all duration-500 ease-out rounded-full" 
-        style={{ width: `${percentage}%`, backgroundColor: color || PHASE_COLORS[0] }}
+    <div className="wf">
+      <label className="wl-label">{label}</label>
+      <textarea
+        ref={ref}
+        className="wl"
+        value={value}
+        rows={lines}
+        placeholder={placeholder}
+        onChange={e => { onChange(e.target.value); autoGrow(); }}
+        onFocus={e => { e.currentTarget.style.borderBottomColor = colour; }}
+        onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--grey1)'; }}
       />
     </div>
   );
 }
 
-export function Scorecard({ label, value, onChange, color }: { label: string, value?: number | null, onChange: (val: number) => void, color?: string }) {
-  const activeColor = color || PHASE_COLORS[0];
-  
-  return (
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-2">
-        <span className="font-mono text-sm uppercase tracking-wider">{label}</span>
-        {value && <span className="font-heading text-xl" style={{ color: activeColor }}>{value}/5</span>}
+/* ── ImplIntention ────────────────────────────────────── */
+interface ImplIntentionProps {
+  label?: string;
+  values: { when: string; where: string; how: string };
+  onChange: (field: 'when' | 'where' | 'how', val: string) => void;
+  phaseColour?: string;
+}
+
+export function ImplIntention({ label = 'Next week I will:', values, onChange, phaseColour }: ImplIntentionProps) {
+  const colour = phaseColour ?? '#10AC6E';
+
+  function Col({ field, title }: { field: 'when' | 'where' | 'how'; title: string }) {
+    const ref = useRef<HTMLTextAreaElement>(null);
+    const grow = () => {
+      const el = ref.current;
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    };
+    useEffect(() => { grow(); }, [values[field]]);
+    return (
+      <div className="impl-col">
+        <span className="impl-label">{title}</span>
+        <textarea
+          ref={ref}
+          className="wl"
+          value={values[field]}
+          rows={2}
+          onChange={e => { onChange(field, e.target.value); grow(); }}
+          onFocus={e => { e.currentTarget.style.borderBottomColor = colour; }}
+          onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--grey1)'; }}
+        />
       </div>
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map(rating => (
-          <button
-            key={rating}
-            onClick={() => onChange(rating)}
-            className={`flex-1 h-12 rounded-md border-2 transition-all font-heading text-xl flex items-center justify-center`}
-            style={{
-              borderColor: value === rating ? activeColor : 'var(--color-border)',
-              backgroundColor: value === rating ? `${activeColor}15` : 'transparent',
-              color: value === rating ? activeColor : 'var(--color-muted-foreground)'
-            }}
-          >
-            {rating}
-          </button>
-        ))}
+    );
+  }
+
+  return (
+    <div className="impl-wrap">
+      <div className="impl-label-row" style={{ color: colour }}>{label}</div>
+      <div className="impl">
+        <Col field="when" title="WHEN" />
+        <Col field="where" title="WHERE" />
+        <Col field="how" title="HOW" />
       </div>
     </div>
   );
 }
 
-export function ImplIntentionTrio({
-  when, onWhenChange,
-  where, onWhereChange,
-  how, onHowChange,
-  color
-}: {
-  when: string, onWhenChange: (val: string) => void,
-  where: string, onWhereChange: (val: string) => void,
-  how: string, onHowChange: (val: string) => void,
-  color?: string
-}) {
-  const activeColor = color || PHASE_COLORS[0];
-  
+/* ── MissionBox ───────────────────────────────────────── */
+export function MissionBox({ mission, phaseColour }: { mission: string; phaseColour: string }) {
+  const bg = `${phaseColour}14`;
   return (
-    <div className="bg-muted/30 border border-border p-4 rounded-xl space-y-4">
-      <h3 className="font-heading text-xl uppercase border-b border-border pb-2 mb-4" style={{ color: activeColor }}>Implementation Intention</h3>
-      
-      <div>
-        <label className="block font-mono text-xs text-muted-foreground mb-1">WHEN</label>
-        <input 
-          type="text" 
-          value={when || ''} 
-          onChange={(e) => onWhenChange(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 font-sans focus:outline-none focus:ring-1"
-          style={{ '--tw-ring-color': activeColor } as any}
-          placeholder="e.g. Immediately after training"
-        />
+    <div className="mission-box" style={{ borderColor: phaseColour, backgroundColor: bg }}>
+      <div className="mission-label" style={{ color: phaseColour }}>Weekly Mission</div>
+      <div className="mission-text" style={{ color: phaseColour }}>{mission}</div>
+    </div>
+  );
+}
+
+/* ── FocusQuestion ────────────────────────────────────── */
+export function FocusQuestion({ question, phaseColour }: { question: string; phaseColour: string }) {
+  return (
+    <div className="focus-q" style={{ borderColor: phaseColour }}>
+      <span className="fq-label" style={{ color: phaseColour }}>Focus Question</span>
+      <p>{question}</p>
+    </div>
+  );
+}
+
+/* ── Callout ──────────────────────────────────────────── */
+export function Callout({ title, colour = '#10AC6E', children }: { title: string; colour?: string; children: React.ReactNode }) {
+  return (
+    <div className="callout" style={{ borderColor: colour }}>
+      <strong>{title}</strong>
+      <p>{children as string}</p>
+    </div>
+  );
+}
+
+/* ── PhaseDivider ─────────────────────────────────────── */
+interface PhaseDividerProps {
+  num: number;
+  name: string;
+  subtitle: string;
+  colour: string;
+  pills?: string[];
+}
+export function PhaseDivider({ num, name, subtitle, colour, pills = [] }: PhaseDividerProps) {
+  return (
+    <div className="phase-div" style={{ background: colour }}>
+      <div className="ghost-num">{num}</div>
+      <div className="phase-eyebrow">Phase {num}</div>
+      <div className="phase-title">{name}</div>
+      <div className="phase-subtitle">{subtitle}</div>
+      <div>{pills.map(p => <span key={p} className="phase-pill">{p}</span>)}</div>
+    </div>
+  );
+}
+
+/* ── ModuleHeader ─────────────────────────────────────── */
+interface ModuleHeaderProps {
+  eyebrow: string;
+  title: string;
+  desc?: string;
+  colour: string;
+}
+export function ModuleHeader({ eyebrow, title, desc, colour }: ModuleHeaderProps) {
+  return (
+    <div className="mod-header">
+      <div className="mod-eyebrow" style={{ color: colour }}>{eyebrow}</div>
+      <div className="mod-title">{title}</div>
+      {desc && <div className="mod-desc">{desc}</div>}
+    </div>
+  );
+}
+
+/* ── RatingRow (competition review) ─────────────────────── */
+interface RatingRowProps {
+  label: string;
+  lo?: string;
+  hi?: string;
+  value: number;
+  onChange: (v: number) => void;
+  phaseColour?: string;
+}
+export function RatingRow({ label, lo = 'Low', hi = 'High', value, onChange, phaseColour }: RatingRowProps) {
+  const colour = phaseColour ?? '#FF4936';
+  return (
+    <div className="rating-row">
+      <div className="r-label">{label}</div>
+      <div className="r-boxes">
+        {[1, 2, 3, 4, 5].map(n => (
+          <RatingBox key={n} value={n} selected={value >= n} onSelect={onChange} phaseColour={colour} />
+        ))}
       </div>
-      
-      <div>
-        <label className="block font-mono text-xs text-muted-foreground mb-1">WHERE</label>
-        <input 
-          type="text" 
-          value={where || ''} 
-          onChange={(e) => onWhereChange(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 font-sans focus:outline-none focus:ring-1"
-          style={{ '--tw-ring-color': activeColor } as any}
-          placeholder="e.g. In the car ride home"
-        />
-      </div>
-      
-      <div>
-        <label className="block font-mono text-xs text-muted-foreground mb-1">HOW</label>
-        <textarea 
-          value={how || ''} 
-          onChange={(e) => onHowChange(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 font-sans min-h-[80px] resize-none focus:outline-none focus:ring-1"
-          style={{ '--tw-ring-color': activeColor } as any}
-          placeholder="e.g. I will write down three things..."
-        />
+      <div className="r-scale">
+        <span>{lo}</span>
+        <span>{hi}</span>
       </div>
     </div>
+  );
+}
+
+/* ── SaveIndicator ────────────────────────────────────── */
+export function SaveIndicator({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' }) {
+  if (status === 'idle') return null;
+  const map = {
+    saving: { text: 'Saving…', color: 'var(--grey)' },
+    saved: { text: 'Saved ✓', color: 'var(--green)' },
+    error: { text: 'Error', color: 'var(--red)' },
+  };
+  const { text, color } = map[status] ?? map.saving;
+  return (
+    <span className="save-indicator" style={{ color }}>{text}</span>
+  );
+}
+
+/* ── PhaseBadge ───────────────────────────────────────── */
+export function PhaseBadge({ phase }: { phase: number }) {
+  const color = PHASE_COLORS[phase] ?? PHASE_COLORS[0];
+  const label = PHASE_LABELS[phase] ?? 'Unknown';
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', borderRadius: 100, border: `1px solid ${color}`, backgroundColor: `${color}15` }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color }} />
+      <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color }}>Phase {phase}: {label}</span>
+    </div>
+  );
+}
+
+/* ── ProgressBarInline ────────────────────────────────── */
+export function ProgressBarInline({ current, total, color }: { current: number; total: number; color?: string }) {
+  const pct = Math.min(100, Math.max(0, (current / total) * 100));
+  return (
+    <div style={{ width: '100%', height: 4, background: 'var(--grey1)', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ width: `${pct}%`, height: '100%', background: color ?? '#10AC6E', borderRadius: 2, transition: 'width .3s' }} />
+    </div>
+  );
+}
+
+/* ── DataTable ────────────────────────────────────────── */
+interface DataTableProps {
+  headers: string[];
+  rows: string[][];
+  headerColour?: string;
+}
+export function DataTable({ headers, rows, headerColour = '#111111' }: DataTableProps) {
+  return (
+    <table className="data-table">
+      <thead>
+        <tr style={{ background: headerColour }}>
+          {headers.map(h => <th key={h}>{h}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i}>
+            {row.map((cell, j) => <td key={j}>{cell}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

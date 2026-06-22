@@ -1,34 +1,68 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@workspace/replit-auth-web";
-import NotFound from "@/pages/not-found";
+import { Switch, Route, Router as WouterRouter } from 'wouter';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAuth } from '@workspace/replit-auth-web';
 
-import Dashboard from "@/pages/dashboard";
-import Onboarding from "@/pages/onboarding";
-import WeeklyReflection from "@/pages/weekly-reflection";
-import Phase0 from "@/pages/phase0";
-import MonthlyCheckin from "@/pages/monthly-checkin";
-import Capstone from "@/pages/capstone";
-import Progress from "@/pages/progress";
-import CompetitionReview from "@/pages/competition-review";
-import Appendix from "@/pages/appendix";
+import Dashboard from '@/pages/dashboard';
+import Onboarding from '@/pages/onboarding';
+import WeeklyReflection from '@/pages/weekly-reflection';
+import Phase0 from '@/pages/phase0';
+import MonthlyCheckin from '@/pages/monthly-checkin';
+import Capstone from '@/pages/capstone';
+import Progress from '@/pages/progress';
+import CompetitionReview from '@/pages/competition-review';
+import Appendix from '@/pages/appendix';
+import PreComp from '@/pages/pre-comp';
+import NotFound from '@/pages/not-found';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000 } },
+});
 
 function LoginScreen() {
   const { login } = useAuth();
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center bg-[#111111] text-white p-4 font-sans">
-      <div className="max-w-md w-full space-y-8 text-center">
-        <div className="space-y-2">
-          <p className="text-[#10AC6E] font-mono tracking-widest text-xs">PLLAY ON EDGE</p>
-          <h1 className="text-6xl font-heading tracking-tighter uppercase leading-[0.9]">Development<br/>Program</h1>
-        </div>
-        <button 
+    <div style={{
+      minHeight: '100dvh',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#111111',
+      color: '#fff',
+      padding: 24,
+    }}>
+      <div style={{ maxWidth: 440, width: '100%', textAlign: 'center' }}>
+        <p style={{ fontFamily: 'var(--font-m)', color: '#10AC6E', letterSpacing: '.2em', fontSize: 11, textTransform: 'uppercase', marginBottom: 12 }}>
+          Pllay On Edge
+        </p>
+        <h1 style={{
+          fontFamily: 'var(--font-d)',
+          fontWeight: 800,
+          fontSize: 'clamp(52px,8vw,80px)',
+          textTransform: 'uppercase',
+          letterSpacing: '-.02em',
+          lineHeight: .88,
+          marginBottom: 56,
+        }}>
+          Development<br />Program
+        </h1>
+        <button
           onClick={() => login()}
-          className="w-full bg-[#10AC6E] text-[#111111] py-4 px-8 rounded-sm font-heading text-2xl hover:opacity-90 transition-opacity uppercase tracking-wide mt-12"
+          style={{
+            width: '100%',
+            background: '#10AC6E',
+            color: '#111111',
+            border: 'none',
+            borderRadius: 4,
+            padding: '16px 32px',
+            fontFamily: 'var(--font-d)',
+            fontWeight: 800,
+            fontSize: 22,
+            textTransform: 'uppercase',
+            letterSpacing: '.06em',
+            cursor: 'pointer',
+          }}
         >
           Access Portal
         </button>
@@ -37,21 +71,18 @@ function LoginScreen() {
   );
 }
 
-function ProtectedRoute({ component: Component }: { component: any }) {
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFBFC' }}>
+        <div style={{ width: 32, height: 32, border: '4px solid #10AC6E', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
-  
-  if (!isAuthenticated) {
-    return <LoginScreen />;
-  }
-  
+
+  if (!isAuthenticated) return <LoginScreen />;
   return <Component />;
 }
 
@@ -66,7 +97,9 @@ function Router() {
       <Route path="/capstone" component={() => <ProtectedRoute component={Capstone} />} />
       <Route path="/progress" component={() => <ProtectedRoute component={Progress} />} />
       <Route path="/competition-review" component={() => <ProtectedRoute component={CompetitionReview} />} />
+      <Route path="/competition-review/:id" component={() => <ProtectedRoute component={CompetitionReview} />} />
       <Route path="/appendix/:id" component={() => <ProtectedRoute component={Appendix} />} />
+      <Route path="/pre-comp" component={() => <ProtectedRoute component={PreComp} />} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -75,12 +108,9 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+        <Router />
+      </WouterRouter>
     </QueryClientProvider>
   );
 }

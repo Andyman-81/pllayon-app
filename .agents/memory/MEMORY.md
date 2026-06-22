@@ -1,0 +1,4 @@
+- [Pllay design system](pllay-design-system.md) — spec bans shadcn; use raw CSS custom properties (`--green`, `--grey1`, etc.) + className-based CSS from index.css only.
+- [Pllay component naming](pllay-component-naming.md) — Scorecard is now `ScorecardTable`; ImplIntentionTrio is now `ImplIntention`; ProgressBar is `ProgressBarInline`.
+- [Pllay layout pattern](pllay-layout-pattern.md) — Layout fetches own profile+progress internally; top fixed Navbar (not bottom tabs); ProgressWidget fixed bottom-right; pages pass `currentPhase` + `currentSection` props.
+- [Pllay API progress fields](pllay-api-progress.md) — progress endpoint returns `streakWeeks` (not `streak`); use `progress.streakWeeks` in the dashboard.

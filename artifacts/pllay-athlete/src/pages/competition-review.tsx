@@ -1,66 +1,73 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
-import { useCreateCompetitionReview, useGetCompetitionReviews } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Layout, PageHeader } from "@/components/layout";
-import { Scorecard, ImplIntentionTrio } from "@/components/ui-elements";
-import { PHASE_COLORS } from "@/lib/constants";
-import { Plus, ArrowRight } from "lucide-react";
+import { useState } from 'react';
+import { useLocation } from 'wouter';
+import { useCreateCompetitionReview, useGetCompetitionReviews } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Layout } from '@/components/layout';
+import { RatingRow, WriteField, ImplIntention, ModuleHeader } from '@/components/ui-elements';
+import { PHASE_COLORS } from '@/lib/constants';
+
+const PHASE_COLOUR = '#FF4936';
 
 export default function CompetitionReview() {
-  const phaseColor = PHASE_COLORS[0]; // fallback
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { data: reviews, isLoading } = useGetCompetitionReviews();
   const createMutation = useCreateCompetitionReview();
-  const [, setLocation] = useLocation();
 
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
-    competitionName: "",
+    competitionName: '',
     competitionDate: new Date().toISOString().split('T')[0],
-    opponent: "",
-    result: "",
+    opponent: '',
+    result: '',
     performanceRating: 0,
     decisionRating: 0,
     emotionRating: 0,
-    bestDecision: "",
-    changeDecision: "",
-    keyLearning: "",
-    implWhen: "",
-    implWhere: "",
-    implHow: ""
+    bestDecision: '',
+    changeDecision: '',
+    keyLearning: '',
+    implWhen: '',
+    implWhere: '',
+    implHow: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function set(key: string, value: unknown) {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    createMutation.mutate({ data: formData }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["/api/athlete/competition-reviews"] });
-        setIsCreating(false);
-        setFormData({
-          competitionName: "",
-          competitionDate: new Date().toISOString().split('T')[0],
-          opponent: "",
-          result: "",
-          performanceRating: 0,
-          decisionRating: 0,
-          emotionRating: 0,
-          bestDecision: "",
-          changeDecision: "",
-          keyLearning: "",
-          implWhen: "",
-          implWhere: "",
-          implHow: ""
-        });
+    createMutation.mutate(
+      { data: formData },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['/api/athlete/competition-reviews'] });
+          setIsCreating(false);
+          setFormData({
+            competitionName: '',
+            competitionDate: new Date().toISOString().split('T')[0],
+            opponent: '',
+            result: '',
+            performanceRating: 0,
+            decisionRating: 0,
+            emotionRating: 0,
+            bestDecision: '',
+            changeDecision: '',
+            keyLearning: '',
+            implWhen: '',
+            implWhere: '',
+            implHow: '',
+          });
+        },
       }
-    });
-  };
+    );
+  }
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-full min-h-[50vh]">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <Layout currentPhase={3} currentSection="Competition Review">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <div style={{ width: 32, height: 32, border: `4px solid ${PHASE_COLOUR}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         </div>
       </Layout>
     );
@@ -68,112 +75,184 @@ export default function CompetitionReview() {
 
   if (isCreating) {
     return (
-      <Layout>
-        <PageHeader title="New Review" subtitle="Competition" phaseColor={phaseColor} />
-        <form onSubmit={handleSubmit} className="p-6 space-y-8">
-          <div className="space-y-4">
-            <div>
-              <label className="block font-mono text-xs text-muted-foreground mb-1">COMPETITION NAME</label>
-              <input 
-                required type="text" 
-                value={formData.competitionName} onChange={e => setFormData({...formData, competitionName: e.target.value})}
-                className="w-full bg-background border rounded-md px-3 py-2"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block font-mono text-xs text-muted-foreground mb-1">DATE</label>
-                <input 
-                  required type="date" 
-                  value={formData.competitionDate} onChange={e => setFormData({...formData, competitionDate: e.target.value})}
-                  className="w-full bg-background border rounded-md px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block font-mono text-xs text-muted-foreground mb-1">RESULT</label>
-                <input 
-                  type="text" 
-                  value={formData.result} onChange={e => setFormData({...formData, result: e.target.value})}
-                  className="w-full bg-background border rounded-md px-3 py-2"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="font-heading text-xl uppercase">Ratings</h3>
-            <Scorecard label="Performance" value={formData.performanceRating} onChange={v => setFormData({...formData, performanceRating: v})} />
-            <Scorecard label="Decision Making" value={formData.decisionRating} onChange={v => setFormData({...formData, decisionRating: v})} />
-            <Scorecard label="Emotional Control" value={formData.emotionRating} onChange={v => setFormData({...formData, emotionRating: v})} />
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="font-heading text-xl uppercase">Analysis</h3>
-            <div>
-              <label className="block font-mono text-xs text-muted-foreground mb-1">BEST DECISION MADE</label>
-              <textarea 
-                value={formData.bestDecision} onChange={e => setFormData({...formData, bestDecision: e.target.value})}
-                className="w-full bg-muted/30 border rounded-md px-3 py-2 min-h-[80px]"
-              />
-            </div>
-            <div>
-              <label className="block font-mono text-xs text-muted-foreground mb-1">DECISION TO CHANGE</label>
-              <textarea 
-                value={formData.changeDecision} onChange={e => setFormData({...formData, changeDecision: e.target.value})}
-                className="w-full bg-muted/30 border rounded-md px-3 py-2 min-h-[80px]"
-              />
-            </div>
-          </div>
-
-          <ImplIntentionTrio 
-            when={formData.implWhen} onWhenChange={v => setFormData({...formData, implWhen: v})}
-            where={formData.implWhere} onWhereChange={v => setFormData({...formData, implWhere: v})}
-            how={formData.implHow} onHowChange={v => setFormData({...formData, implHow: v})}
-          />
-
-          <div className="flex gap-4">
-            <button type="button" onClick={() => setIsCreating(false)} className="flex-1 py-3 border rounded-md font-heading uppercase text-lg">Cancel</button>
-            <button type="submit" disabled={createMutation.isPending} className="flex-1 py-3 bg-primary text-primary-foreground rounded-md font-heading uppercase text-lg">
-              {createMutation.isPending ? "Saving..." : "Save Review"}
+      <Layout currentPhase={3} currentSection="Competition Review">
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 0 120px' }}>
+          <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid var(--grey1)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <ModuleHeader eyebrow="Phase 3" title="Competition Review" colour={PHASE_COLOUR} />
+            <button
+              type="button"
+              onClick={() => setIsCreating(false)}
+              style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--grey)', background: 'none', border: 'none', cursor: 'pointer', paddingTop: 4 }}
+            >
+              ← Cancel
             </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+
+            {/* Event details */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: PHASE_COLOUR, fontWeight: 700, marginBottom: 12 }}>
+                Event Details
+              </div>
+              <WriteField label="Competition name:" value={formData.competitionName} onChange={v => set('competitionName', v)} phaseColour={PHASE_COLOUR} />
+              <WriteField label="Date:" value={formData.competitionDate} onChange={v => set('competitionDate', v)} phaseColour={PHASE_COLOUR} />
+              <WriteField label="Opponent / draw:" value={formData.opponent} onChange={v => set('opponent', v)} phaseColour={PHASE_COLOUR} />
+              <WriteField label="Result (W/L/score):" value={formData.result} onChange={v => set('result', v)} phaseColour={PHASE_COLOUR} />
+            </div>
+
+            {/* Performance ratings */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: PHASE_COLOUR, fontWeight: 700, marginBottom: 12 }}>
+                Performance Ratings
+              </div>
+              <RatingRow
+                label="Overall performance quality"
+                lo="Well below level"
+                hi="Best performance"
+                value={formData.performanceRating}
+                onChange={v => set('performanceRating', v)}
+                phaseColour={PHASE_COLOUR}
+              />
+              <RatingRow
+                label="Decision making under pressure"
+                lo="Poor decisions"
+                hi="Excellent decisions"
+                value={formData.decisionRating}
+                onChange={v => set('decisionRating', v)}
+                phaseColour={PHASE_COLOUR}
+              />
+              <RatingRow
+                label="Emotional control and composure"
+                lo="Lost control"
+                hi="Full composure"
+                value={formData.emotionRating}
+                onChange={v => set('emotionRating', v)}
+                phaseColour={PHASE_COLOUR}
+              />
+            </div>
+
+            {/* Analysis */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: PHASE_COLOUR, fontWeight: 700, marginBottom: 12 }}>
+                Analysis
+              </div>
+              <WriteField label="Best decision I made:" value={formData.bestDecision} onChange={v => set('bestDecision', v)} phaseColour={PHASE_COLOUR} lines={2} />
+              <WriteField label="Decision I would change:" value={formData.changeDecision} onChange={v => set('changeDecision', v)} phaseColour={PHASE_COLOUR} lines={2} />
+              <WriteField label="Key learning:" value={formData.keyLearning} onChange={v => set('keyLearning', v)} phaseColour={PHASE_COLOUR} lines={2} />
+            </div>
+
+            {/* Implementation intention */}
+            <ImplIntention
+              label="Next competition I will:"
+              values={{ when: formData.implWhen, where: formData.implWhere, how: formData.implHow }}
+              onChange={(field, val) => set(`impl${field.charAt(0).toUpperCase() + field.slice(1)}`, val)}
+              phaseColour={PHASE_COLOUR}
+            />
+
+            <div style={{ marginTop: 28 }}>
+              <button
+                type="submit"
+                disabled={createMutation.isPending}
+                style={{
+                  width: '100%',
+                  padding: '14px 0',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: PHASE_COLOUR,
+                  color: '#fff',
+                  fontFamily: 'var(--font-d)',
+                  fontWeight: 800,
+                  fontSize: 20,
+                  textTransform: 'uppercase',
+                  letterSpacing: '.04em',
+                  cursor: createMutation.isPending ? 'wait' : 'pointer',
+                  opacity: createMutation.isPending ? .7 : 1,
+                }}
+              >
+                {createMutation.isPending ? 'Saving…' : 'Save Review'}
+              </button>
+            </div>
+          </form>
+        </div>
       </Layout>
     );
   }
 
   return (
-    <Layout>
-      <PageHeader title="Competition Reviews" />
-      <div className="p-6 space-y-6">
-        <button 
-          onClick={() => setIsCreating(true)}
-          className="w-full py-4 border-2 border-dashed border-muted-foreground/30 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:bg-muted/30 transition-colors"
-        >
-          <Plus size={20} /> <span className="font-heading text-xl uppercase tracking-wide">Log New Review</span>
-        </button>
+    <Layout currentPhase={3} currentSection="Competition Reviews">
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 0 120px' }}>
+        <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid var(--grey1)' }}>
+          <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: PHASE_COLOUR, marginBottom: 5 }}>Phase 3</div>
+          <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 36, textTransform: 'uppercase', letterSpacing: '-.01em', color: 'var(--black)', lineHeight: .95 }}>
+            Competition Reviews
+          </div>
+        </div>
 
-        <div className="space-y-4">
-          {reviews?.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No competition reviews logged yet.</p>
-          ) : (
-            reviews?.map(review => (
-              <div key={review.id} className="bg-card border p-4 rounded-xl">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-heading text-xl uppercase">{review.competitionName || "Unnamed Competition"}</h3>
-                    <p className="font-mono text-xs text-muted-foreground">{new Date(review.competitionDate || "").toLocaleDateString()}</p>
+        <div style={{ padding: '24px' }}>
+          <button
+            onClick={() => setIsCreating(true)}
+            style={{
+              width: '100%',
+              padding: '16px',
+              border: `2px dashed ${PHASE_COLOUR}50`,
+              borderRadius: 8,
+              background: `${PHASE_COLOUR}08`,
+              fontFamily: 'var(--font-d)',
+              fontWeight: 800,
+              fontSize: 18,
+              textTransform: 'uppercase',
+              letterSpacing: '.06em',
+              color: PHASE_COLOUR,
+              cursor: 'pointer',
+              marginBottom: 24,
+            }}
+          >
+            + Log New Review
+          </button>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {!reviews?.length ? (
+              <p style={{ textAlign: 'center', color: 'var(--grey)', padding: '32px 0', fontFamily: 'var(--font-m)', fontSize: 12, letterSpacing: '.08em' }}>
+                No competition reviews logged yet.
+              </p>
+            ) : (
+              reviews.map(review => (
+                <div
+                  key={review.id}
+                  style={{
+                    background: '#fff',
+                    border: '1px solid var(--grey1)',
+                    borderLeft: `4px solid ${PHASE_COLOUR}`,
+                    borderRadius: '0 8px 8px 0',
+                    padding: '16px 18px',
+                    boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 20, textTransform: 'uppercase', color: 'var(--black)' }}>
+                        {review.competitionName || 'Unnamed Competition'}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: 'var(--grey)', letterSpacing: '.08em', marginTop: 2 }}>
+                        {review.competitionDate ? new Date(review.competitionDate).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                    {review.result && (
+                      <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, fontWeight: 700, color: PHASE_COLOUR, background: `${PHASE_COLOUR}15`, padding: '3px 10px', borderRadius: 100, letterSpacing: '.08em' }}>
+                        {review.result}
+                      </span>
+                    )}
                   </div>
-                  <div className="bg-muted px-2 py-1 rounded font-mono text-xs">{review.result}</div>
+                  <div style={{ display: 'flex', gap: 16, fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.08em', color: 'var(--grey)', textTransform: 'uppercase' }}>
+                    <span>Perf: {review.performanceRating}/5</span>
+                    <span>Decision: {review.decisionRating}/5</span>
+                    <span>Emotion: {review.emotionRating}/5</span>
+                  </div>
                 </div>
-                <div className="flex gap-4 mt-4 font-mono text-xs">
-                  <div>PERF: {review.performanceRating}/5</div>
-                  <div>DEC: {review.decisionRating}/5</div>
-                  <div>EMO: {review.emotionRating}/5</div>
-                </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </Layout>
