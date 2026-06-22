@@ -11,7 +11,8 @@ interface NavbarProps {
   onHome: () => void;
 }
 
-function Navbar({ phaseColour, currentSection, athleteName, onHome }: NavbarProps) {
+function Navbar({ phaseColour, currentSection, athleteName, onHome, currentWeek }: NavbarProps & { currentWeek?: number }) {
+  const [, navigate] = useLocation();
   return (
     <nav
       className="nav"
@@ -28,17 +29,35 @@ function Navbar({ phaseColour, currentSection, athleteName, onHome }: NavbarProp
         <span className="nav-wkb" style={{ background: phaseColour }}>{currentSection}</span>
       )}
       <div style={{ flex: 1 }} />
-      {athleteName && (
-        <span style={{
-          fontFamily: 'var(--font-m)',
-          fontSize: 11,
-          color: 'rgba(255,255,255,.55)',
-          letterSpacing: '.08em',
-          textTransform: 'uppercase',
-        }}>
-          {athleteName}
-        </span>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {(currentWeek ?? 0) >= 1 && (
+          <button
+            onClick={() => navigate(`/schedule/week/${currentWeek}`)}
+            title="Weekly Schedule"
+            style={{ minHeight: 32, padding: '5px 10px', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 6, fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}
+          >
+            Schedule
+          </button>
+        )}
+        <button
+          onClick={() => navigate('/cycle-planner')}
+          title="12-Week Plan"
+          style={{ minHeight: 32, padding: '5px 10px', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)', borderRadius: 6, fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}
+        >
+          12Wk Plan
+        </button>
+        {athleteName && (
+          <span style={{
+            fontFamily: 'var(--font-m)',
+            fontSize: 11,
+            color: 'rgba(255,255,255,.55)',
+            letterSpacing: '.08em',
+            textTransform: 'uppercase',
+          }}>
+            {athleteName}
+          </span>
+        )}
+      </div>
     </nav>
   );
 }
@@ -93,6 +112,7 @@ export function Layout({ children, currentPhase = 0, currentSection }: LayoutPro
         currentSection={section}
         athleteName={athleteName}
         onHome={() => navigate('/')}
+        currentWeek={progress?.currentWeek ?? 0}
       />
 
       <main style={{ paddingTop: 56 }}>

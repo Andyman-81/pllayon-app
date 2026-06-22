@@ -12,14 +12,33 @@ import Progress from '@/pages/progress';
 import CompetitionReview from '@/pages/competition-review';
 import Appendix from '@/pages/appendix';
 import PreComp from '@/pages/pre-comp';
+import SchedulePage from '@/pages/schedule';
+import CyclePlannerPage from '@/pages/cycle-planner';
 import NotFound from '@/pages/not-found';
+import { useState } from 'react';
+import { getRole, saveRole, type Role } from '@/lib/useRole';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
 });
 
+const ROLES: { value: Role; label: string; colour: string }[] = [
+  { value: 'athlete', label: 'Athlete', colour: '#10AC6E' },
+  { value: 'coach',   label: 'Coach',   colour: '#0B7DF1' },
+  { value: 'parent',  label: 'Parent',  colour: '#F5B809' },
+];
+
 function LoginScreen() {
   const { login } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<Role>(getRole());
+
+  function handleLogin() {
+    saveRole(selectedRole);
+    login();
+  }
+
+  const activeColour = ROLES.find(r => r.value === selectedRole)?.colour ?? '#10AC6E';
+
   return (
     <div style={{
       minHeight: '100dvh',
@@ -43,15 +62,48 @@ function LoginScreen() {
           textTransform: 'uppercase',
           letterSpacing: '-.02em',
           lineHeight: .88,
-          marginBottom: 56,
+          marginBottom: 40,
         }}>
           Development<br />Program
         </h1>
+
+        {/* Role selector */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
+            I am accessing as
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+            {ROLES.map(r => (
+              <button
+                key={r.value}
+                onClick={() => setSelectedRole(r.value)}
+                style={{
+                  minHeight: 44,
+                  padding: '10px 22px',
+                  borderRadius: 100,
+                  border: `2px solid ${selectedRole === r.value ? r.colour : 'rgba(255,255,255,.15)'}`,
+                  background: selectedRole === r.value ? `${r.colour}20` : 'transparent',
+                  fontFamily: 'var(--font-m)',
+                  fontSize: 11,
+                  letterSpacing: '.12em',
+                  textTransform: 'uppercase',
+                  color: selectedRole === r.value ? r.colour : 'rgba(255,255,255,.45)',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  transition: 'all .15s',
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
-          onClick={() => login()}
+          onClick={handleLogin}
           style={{
             width: '100%',
-            background: '#10AC6E',
+            background: activeColour,
             color: '#111111',
             border: 'none',
             borderRadius: 4,
@@ -62,6 +114,7 @@ function LoginScreen() {
             textTransform: 'uppercase',
             letterSpacing: '.06em',
             cursor: 'pointer',
+            minHeight: 52,
           }}
         >
           Access Portal
@@ -100,6 +153,8 @@ function Router() {
       <Route path="/competition-review/:id" component={() => <ProtectedRoute component={CompetitionReview} />} />
       <Route path="/appendix/:id" component={() => <ProtectedRoute component={Appendix} />} />
       <Route path="/pre-comp" component={() => <ProtectedRoute component={PreComp} />} />
+      <Route path="/schedule/week/:weekNum" component={() => <ProtectedRoute component={SchedulePage} />} />
+      <Route path="/cycle-planner" component={() => <ProtectedRoute component={CyclePlannerPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

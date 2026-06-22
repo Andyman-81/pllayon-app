@@ -1,0 +1,345 @@
+Add two new features to the Pllay On Athlete Digital Workbook.
+Do not modify any existing features. Add only what is described below.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OWNERSHIP MODEL — READ THIS FIRST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Both features follow this ownership pattern:
+
+  COACH   → creates, edits, publishes
+  ATHLETE → views, adds personal notes only
+  PARENT  → views only, no editing
+
+The coach builds the plan. The athlete lives it.
+The parent sees it. No one else can change the coach's data.
+
+This means:
+- All schedule and cycle plan data is stored under the athlete_id
+  but with a created_by field ('coach' or 'athlete')
+- Coach-created rows: editable only by coach role
+- Athlete notes: separate fields, editable only by athlete
+- Parent: read-only across everything in these two features
+
+For V1 there is one account per athlete. Implement role as a field
+on the athletes table (role: 'athlete' | 'coach' | 'parent').
+Coach and parent access the same app but see different UI states
+based on their role. Add a role selector on the login/register screen:
+  "I am the: Athlete / Coach / Parent"
+Store role in localStorage after login (not in Supabase auth —
+keep it simple for V1).
+
+Role-based UI rules:
+  Coach role:   sees Edit buttons, Add Session, all controls
+  Athlete role: sees coach content as read-only + can add personal notes
+  Parent role:  sees everything as read-only, no note fields shown
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 1 — WEEKLY SCHEDULE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Route: /schedule/week/:weekNum
+
+OWNERSHIP
+  Coach creates the schedule.
+  Athlete sees it and can add a personal note per day ("my focus for today").
+  Parent sees it read-only with no note fields.
+
+COACH VIEW (role = 'coach')
+
+Header:
+  "WEEK [N] SCHEDULE" — Barlow Condensed, phase colour
+  Phase label + date range
+  "Published" / "Draft" toggle — coach sets to Published when ready
+  (Athletes only see Published schedules)
+
+Day grid — 7 rows (Monday–Sunday):
+  - Day label left (Space Mono, bold)
+  - Session blocks in a horizontal scrollable row
+  - "+ Add Session" button visible (coach only)
+  - Edit / Delete controls on each session block
+
+ATHLETE VIEW (role = 'athlete')
+
+Same layout but:
+  - No "+ Add Session" button
+  - No Edit / Delete controls on coach sessions
+  - Each day shows a small text field below the coach sessions:
+      Label: "MY FOCUS FOR TODAY"
+      Placeholder: "e.g. Work on my backhand return in the squad session"
+      Saves to athlete_day_notes table (see DB below)
+  - If schedule not yet published: show message
+      "Your coach hasn't published this week's schedule yet."
+      in grey, italic, Space Mono
+
+PARENT VIEW (role = 'parent')
+
+Same as athlete view but:
+  - No athlete note field shown
+  - Shows a banner at top:
+      "This schedule was created by [coach name]"
+      in grey, Space Mono, small
+
+SESSION TYPES + COLOURS (unchanged):
+  Tennis — Court       #10AC6E
+  Tennis — Match       #FF4936
+  S&C — Strength/Power #0B7DF1
+  S&C — Speed/Agility  #F5B809
+  S&C — Conditioning   #7C3AED
+  Body Management      #64748B
+  Recovery             #06B6D4
+  School — Lessons     #1E293B
+  School — Sport       #334155
+  School — Exam        #FF4936
+  Rest Day             #F1F5F9 (dark text)
+
+ADD SESSION MODAL (coach only):
+  Bottom sheet, slides up from bottom
+  Fields:
+    Session Type: scrollable pill selector
+    Time From: time picker (hour + half-hour)
+    Time To: time picker
+    Notes: single line text (optional — coach notes, visible to all)
+    "Add" button in phase colour
+
+WEEKLY TOTALS (bottom, visible to all roles):
+  Tennis: [X]h  |  S&C: [X]h  |  School: [X]h  |  Recovery: [X]h
+  Total load: [X]h
+  Calculated from session durations. Read-only.
+
+CARRY FORWARD (coach only):
+  When coach opens Week N with no sessions:
+  Prompt: "Copy from Week [N-1]?" — Yes / Start Fresh
+  Copies coach sessions only, not athlete notes.
+
+LINK TO WEEKLY REFLECTION (athlete view):
+  At top of weekly reflection show read-only summary:
+  "This week's plan: [X] tennis · [X] S&C · [X] matches"
+  Tappable → opens /schedule/week/:weekNum
+
+DATABASE TABLES
+
+-- Coach sessions
+create table weekly_schedules (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null check (week_number between 1 and 12),
+  day_of_week text not null,
+  session_type text not null,
+  time_from text,
+  time_to text,
+  notes text,
+  created_by text default 'coach',
+  published boolean default false,
+  created_at timestamptz default now()
+);
+
+-- Athlete personal day notes (separate — athlete owns these)
+create table athlete_day_notes (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null,
+  day_of_week text not null,
+  note text,
+  updated_at timestamptz default now(),
+  unique(athlete_id, week_number, day_of_week)
+);
+
+alter table weekly_schedules enable row level security;
+alter table athlete_day_notes enable row level security;
+
+create policy "schedule_own" on weekly_schedules
+  using (auth.uid() = athlete_id);
+create policy "notes_own" on athlete_day_notes
+  using (auth.uid() = athlete_id);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 2 — 12-WEEK CYCLE PLANNER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Route: /cycle-planner
+
+OWNERSHIP
+  Coach builds the plan.
+  Athlete sees it and can add a personal goal per week.
+  Parent sees it read-only.
+
+COACH VIEW (role = 'coach')
+
+Full edit access. Can:
+  - Add / edit / delete events in any week
+  - Set focus notes for each week
+  - Mark weeks as tournaments, testing, recovery
+  - Publish the plan when ready
+
+Show "DRAFT" badge in top right until published.
+"Publish Plan" button → sets published = true.
+Once published, athlete and parent can see it.
+
+ATHLETE VIEW (role = 'athlete')
+
+Read-only for all coach content.
+Each week row shows one additional field (athlete-only):
+  Label: "MY GOAL THIS WEEK"
+  Placeholder: "e.g. Win my first match at the Mornington tournament"
+  Saves to cycle_athlete_goals table (see DB below)
+
+If plan not published:
+  Show page with message:
+  "Your coach is still building your 12-week plan.
+   You'll be notified when it's ready."
+  In Barlow Condensed, grey, centred.
+
+PARENT VIEW (role = 'parent')
+
+Read-only. No goal fields.
+Show banner: "This plan was created by [coach name]"
+
+LAYOUT — SAME AS BEFORE but with role-aware controls
+
+SECTION 1: PHASE TIMELINE GRID
+  12 columns, one per week.
+  Coach: each cell is tappable to add/edit events.
+  Athlete/Parent: cells show events but are not tappable.
+
+SECTION 2: WEEK-BY-WEEK TABLE
+  Columns: Week | Phase | Focus | Tournaments | Testing | Review | Recovery | Notes
+
+  Coach sees: all cells editable inline
+  Athlete sees: all coach cells read-only + "My Goal" column (editable)
+  Parent sees: all cells read-only, no "My Goal" column
+
+  Pre-populated (auto, locked for all roles):
+    Week 4:  Review = "Month 1 Check-In" 🔒
+    Week 8:  Review = "Month 2 Check-In" 🔒
+    Week 12: Review = "Capstone Review"  🔒
+
+EVENT PILLS (same colours as before):
+  Tournament: #FF4936 red
+  Testing:    #0B7DF1 blue
+  Recovery:   #06B6D4 cyan
+  Review:     #10AC6E green (auto/locked)
+  Other:      #64748B grey
+
+ADD EVENT MODAL (coach only):
+  Bottom sheet:
+    Event Type: Tournament / Testing / Recovery / Other
+    Event Name: text (e.g. "Mornington Open")
+    Date From / Date To: text fields
+    Focus Note: text (what is the coaching focus this week?)
+    Notes: text (optional)
+    Save button
+
+DATABASE TABLES
+
+create table cycle_plan (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null check (week_number between 1 and 12),
+  event_type text not null,
+  event_name text,
+  date_from text,
+  date_to text,
+  focus_note text,
+  notes text,
+  created_by text default 'coach',
+  published boolean default false,
+  locked boolean default false,
+  created_at timestamptz default now()
+);
+
+-- Athlete personal goals per week (athlete owns these)
+create table cycle_athlete_goals (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null check (week_number between 1 and 12),
+  goal text,
+  updated_at timestamptz default now(),
+  unique(athlete_id, week_number)
+);
+
+alter table cycle_plan enable row level security;
+alter table cycle_athlete_goals enable row level security;
+
+create policy "cycle_own" on cycle_plan
+  using (auth.uid() = athlete_id);
+create policy "goals_own" on cycle_athlete_goals
+  using (auth.uid() = athlete_id);
+
+PRE-POPULATE LOCKED REVIEWS ON FIRST COACH OPEN:
+  Insert with locked = true:
+    Week 4:  event_type='review', event_name='Month 1 Check-In'
+    Week 8:  event_type='review', event_name='Month 2 Check-In'
+    Week 12: event_type='review', event_name='Capstone Review'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROLE SELECTOR — LOGIN / REGISTER UPDATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Update the login screen to add role selection.
+Below the email/password fields, add:
+
+  Label (Space Mono, uppercase): "I AM THE"
+  Three pill buttons: "ATHLETE"  "COACH"  "PARENT"
+  Selected pill: filled with #0B7DF1 (blue), white text
+  Unselected: border only, grey text
+
+Store selected role in localStorage as 'po_role'.
+Read this role throughout the app to control all edit permissions.
+
+On registration: same three-pill selector.
+Default: Athlete.
+
+Role is not stored in Supabase — localStorage only for V1.
+This means one device = one role. That is correct for V1.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DASHBOARD UPDATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add two buttons to dashboard quick links:
+  "Weekly Schedule" → /schedule/week/[currentWeek]
+  "12-Week Plan"    → /cycle-planner
+
+Coach dashboard: show both with full edit badge
+Athlete dashboard: show both — if unpublished, show grey with "Awaiting coach"
+Parent dashboard: show both — if unpublished, show grey with "Awaiting coach"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NAVIGATION UPDATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add to nav:
+  "Schedule" → /schedule/week/[currentWeek]
+  "12Wk Plan" → /cycle-planner
+
+Coach nav: these links show with an edit pencil icon
+Athlete/Parent nav: same links, no edit icon
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT BUILD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - GPP / SPP / Pre-Comp sub-phase templates
+  - Loading pattern calculations
+  - Drag-and-drop reordering
+  - Automated periodisation generation
+  - Push notifications when coach publishes
+  - Multi-athlete coach dashboard
+  - External calendar integrations
+
+These are V2 features.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN RULES — UNCHANGED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Space Mono: all labels, uppercase, tracked
+  - Barlow Condensed: all headings, uppercase
+  - Inter: all body text and inputs
+  - Phase colour system throughout
+  - No motivational language
+  - Auto-save 1500ms debounce on all text
+  - Immediate save on toggles and selectors
+  - Mobile-first, 44px minimum touch targets
+  - No UI component libraries

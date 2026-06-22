@@ -11,6 +11,7 @@ const QUICK_LINKS = [
   { label: 'Appendix C — Body Mgmt', path: '/appendix/body', colour: '#0B7DF1' },
   { label: 'Appendix D — Cooldown', path: '/appendix/cooldown', colour: '#0B7DF1' },
   { label: 'Progress Summary', path: '/progress', colour: '#10AC6E' },
+  { label: '12-Week Plan', path: '/cycle-planner', colour: '#7C3AED' },
 ];
 
 export default function Dashboard() {
@@ -321,6 +322,14 @@ export default function Dashboard() {
             Quick Links
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {currentWeek >= 1 && (
+              <button
+                onClick={() => navigate(`/schedule/week/${currentWeek}`)}
+                style={{ padding: '8px 16px', borderRadius: 6, border: '1.5px solid #10AC6E', background: '#10AC6E10', fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: '#10AC6E', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Week {currentWeek} Schedule
+              </button>
+            )}
             {QUICK_LINKS.map(link => (
               <button
                 key={link.label}

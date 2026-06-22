@@ -9,6 +9,8 @@ import checkinRouter from "./checkin";
 import capstoneRouter from "./capstone";
 import sleepRouter from "./sleep";
 import progressRouter from "./progress";
+import scheduleRouter from "./schedule";
+import cycleRouter from "./cycle";
 
 const router: IRouter = Router();
 
@@ -22,5 +24,7 @@ router.use(checkinRouter);
 router.use(capstoneRouter);
 router.use(sleepRouter);
 router.use(progressRouter);
+router.use(scheduleRouter);
+router.use(cycleRouter);
 
 export default router;
