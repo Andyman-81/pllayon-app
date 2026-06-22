@@ -109,6 +109,12 @@ interface ImplIntentionProps {
 export function ImplIntention({ label = 'Next week I will:', values, onChange, phaseColour }: ImplIntentionProps) {
   const colour = phaseColour ?? '#10AC6E';
 
+  const IMPL_PLACEHOLDERS = {
+    when: 'e.g. Every Sunday evening after dinner',
+    where: 'e.g. At my desk, phone in another room',
+    how: 'e.g. Open the app, set a 5-minute timer, complete all fields before I close it',
+  };
+
   function Col({ field, title }: { field: 'when' | 'where' | 'how'; title: string }) {
     const ref = useRef<HTMLTextAreaElement>(null);
     const grow = () => {
@@ -126,6 +132,7 @@ export function ImplIntention({ label = 'Next week I will:', values, onChange, p
           className="wl"
           value={values[field]}
           rows={2}
+          placeholder={IMPL_PLACEHOLDERS[field]}
           onChange={e => { onChange(field, e.target.value); grow(); }}
           onFocus={e => { e.currentTarget.style.borderBottomColor = colour; }}
           onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--grey1)'; }}
@@ -273,6 +280,56 @@ export function ProgressBarInline({ current, total, color }: { current: number; 
   return (
     <div style={{ width: '100%', height: 4, background: 'var(--grey1)', borderRadius: 2, overflow: 'hidden' }}>
       <div style={{ width: `${pct}%`, height: '100%', background: color ?? '#10AC6E', borderRadius: 2, transition: 'width .3s' }} />
+    </div>
+  );
+}
+
+/* ── GuidedField ──────────────────────────────────────── */
+interface GuidedFieldProps {
+  label: string;
+  hint: string;
+  placeholder: string;
+  value: string;
+  onChange: (val: string) => void;
+  phaseColour?: string;
+}
+
+export function GuidedField({ label, hint, placeholder, value, onChange, phaseColour }: GuidedFieldProps) {
+  const colour = phaseColour ?? '#0B7DF1';
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const grow = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(80, el.scrollHeight)}px`;
+  }, []);
+
+  useEffect(() => { grow(); }, [value, grow]);
+
+  return (
+    <div className="guided-field">
+      <label className="guided-label">{label}</label>
+      <p className="guided-hint">{hint}</p>
+      <textarea
+        ref={ref}
+        className="guided-textarea"
+        placeholder={placeholder}
+        value={value}
+        rows={3}
+        onChange={e => { onChange(e.target.value); grow(); }}
+        onFocus={e => { e.currentTarget.style.borderColor = colour; }}
+        onBlur={e => { e.currentTarget.style.borderColor = '#F1F5F9'; }}
+      />
+    </div>
+  );
+}
+
+/* ── SectionDivider ───────────────────────────────────── */
+export function SectionDivider({ label, colour = '#0B7DF1' }: { label: string; colour?: string }) {
+  return (
+    <div className="section-divider">
+      <div className="section-divider-label" style={{ color: colour }}>{label}</div>
     </div>
   );
 }

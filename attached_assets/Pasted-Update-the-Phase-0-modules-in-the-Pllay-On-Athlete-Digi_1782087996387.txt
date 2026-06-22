@@ -1,0 +1,402 @@
+Update the Phase 0 modules in the Pllay On Athlete Digital Workbook.
+
+The current implementation shows a single "REFLECTION" textarea for each module.
+This needs to be replaced with structured, guided question-and-answer fields
+that tell the athlete exactly what to write.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE PROBLEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current state:
+  Module 0.1 Vision → shows: "REFLECTION" + blank textarea
+  Module 0.2 Standards → shows: "REFLECTION" + blank textarea
+  Module 0.3 Environment → shows: "REFLECTION" + blank textarea
+  (same for 0.4, 0.5, 0.6)
+
+Required state:
+  Each module has 3–6 specific guided questions.
+  Each question has:
+    - A clear label (what to answer)
+    - Placeholder text (example of a good answer)
+    - A textarea that auto-saves
+  No module should ever show just "REFLECTION" with a blank box.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GUIDED FIELD COMPONENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Build a GuidedField component. Use this for every question in Phase 0.
+
+CSS:
+  .guided-field {
+    margin: 20px 0;
+  }
+  .guided-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #64748B;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .guided-hint {
+    font-size: 12px;
+    color: #94A3B8;
+    font-style: italic;
+    margin-bottom: 8px;
+    line-height: 1.5;
+    padding-left: 2px;
+  }
+  .guided-textarea {
+    width: 100%;
+    min-height: 80px;
+    border: 1.5px solid #F1F5F9;
+    border-radius: 6px;
+    background: #FAFBFC;
+    padding: 12px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #1E293B;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .guided-textarea:focus {
+    border-color: currentPhaseColour;
+    background: #fff;
+  }
+  .guided-textarea::placeholder {
+    color: #CBD5E1;
+    font-style: italic;
+  }
+
+React:
+  <GuidedField
+    label="What does success look like for me in 12 months?"
+    hint="Think about your tennis — but also who you want to become as an athlete."
+    placeholder="e.g. I want to be competing at state level consistently and understanding why I win or lose — not just whether I do."
+    value={val}
+    onChange={fn}
+    phaseColour="#0B7DF1"
+  />
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION DIVIDER COMPONENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Some modules have sub-sections. Use this to separate them visually.
+
+  .section-divider {
+    border-top: 1px solid #F1F5F9;
+    margin: 28px 0 20px;
+    padding-top: 20px;
+  }
+  .section-divider-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0B7DF1;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 0.1 — VISION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: "0.1 VISION"
+Intro text (small, grey, italic):
+  "This is not about rankings or trophies. It is about the kind of athlete
+   and person you want to become. Answer honestly — these answers drive
+   everything that follows."
+
+Fields:
+
+1. label: "What does success look like for me in 12 months?"
+   hint: "Think beyond results. What kind of athlete do you want to be?"
+   placeholder: "e.g. I want to compete at state level and understand why I win or lose — not just whether I do."
+   db_field: vision_12_months
+
+2. label: "What does success look like in 24 months?"
+   hint: "Where is the journey heading?"
+   placeholder: "e.g. I want my first national ranking event and to feel physically ready to compete at that level."
+   db_field: vision_24_months
+
+3. label: "Why does this matter to me — not to my coach or my parents, but to me?"
+   hint: "This is the most important question in this module. Take your time."
+   placeholder: "e.g. I want to prove to myself that I can develop into the athlete I know I can be. Not for anyone else — for me."
+   db_field: vision_why
+
+4. label: "What kind of athlete do I want to be known as?"
+   hint: "Not what you want to achieve — who you want to be."
+   placeholder: "e.g. Someone who competes hard, learns fast and handles pressure well."
+   db_field: vision_identity
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 0.2 — STANDARDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: "0.2 STANDARDS"
+Intro text:
+  "Your standards are the non-negotiables. They are what you do every day —
+   not what you do when you feel like it."
+
+Fields:
+
+1. label: "What are my three non-negotiable training standards?"
+   hint: "These are things you will always do, regardless of how you feel."
+   placeholder: "e.g. 1. I arrive on time and ready to train. 2. I complete every drill at full effort. 3. I never leave without reviewing one thing I learned."
+   db_field: standards_training
+
+2. label: "What standard do I hold myself to in competition?"
+   hint: "Not about winning — about how you compete."
+   placeholder: "e.g. I compete hard on every point regardless of the score. I control what I can control and reset after mistakes."
+   db_field: standards_competition
+
+3. label: "What standard do I hold myself to in recovery?"
+   hint: "Sleep, nutrition, how you treat your body between sessions."
+   placeholder: "e.g. I hit my sleep target at least 5 nights a week. I eat before training. I don't skip cooldowns."
+   db_field: standards_recovery
+
+4. label: "What is the one standard I most need to improve right now?"
+   hint: "Be honest. This is private."
+   placeholder: "e.g. Showing up mentally when I'm tired. I switch off in the last 20 minutes of long sessions."
+   db_field: standards_improve
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 0.3 — ENVIRONMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: "0.3 ENVIRONMENT"
+Intro text:
+  "Your development is shaped by the environment around you — not just
+   your talent. Map it honestly."
+
+Fields:
+
+1. label: "What does my training environment currently do well?"
+   hint: "Think about your coach, facility, training partners and schedule."
+   placeholder: "e.g. My coach gives good technical feedback and we have court time 4 days a week. My training partner pushes me."
+   db_field: env_strengths
+
+2. label: "What is missing or holding me back in my current environment?"
+   hint: "Be specific. Vague answers produce vague plans."
+   placeholder: "e.g. I don't have enough competitive match play. I train well but don't get enough pressure situations."
+   db_field: env_gaps
+
+3. label: "Who in my environment helps my development the most — and how?"
+   hint: "Could be a coach, parent, teammate, mentor."
+   placeholder: "e.g. My S&C coach — she tracks my physical progress properly and adjusts based on data, not guesswork."
+   db_field: env_support
+
+4. label: "What one change to my environment would make the biggest difference?"
+   hint: "Something realistic that could actually happen."
+   placeholder: "e.g. More competitive matches against players slightly better than me. I learn more when I'm being pushed."
+   db_field: env_change
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 0.4 — ROUTINES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: "0.4 ROUTINES"
+Intro text:
+  "Routines remove the need for willpower. The best athletes do not rely
+   on motivation — they rely on habits that run automatically."
+
+Fields:
+
+1. label: "What is my current morning routine on training days?"
+   hint: "Walk through what you actually do — not what you wish you did."
+   placeholder: "e.g. Wake at 7am, breakfast within 30 min, leave by 8:15. Usually check phone too long before getting up — that needs to change."
+   db_field: routine_morning
+
+2. label: "What is my pre-training routine?"
+   hint: "From when you arrive to when training starts."
+   placeholder: "e.g. Arrive 15 min early, dynamic warm-up, 5 min hitting to settle in. I want to add a mental prep habit — not sure what yet."
+   db_field: routine_pretraining
+
+3. label: "What is my post-training routine?"
+   hint: "Recovery, nutrition, reviewing the session."
+   placeholder: "e.g. Cooldown stretch (10 min), protein shake, write one thing I worked on in my notes. Then off court within 30 min."
+   db_field: routine_posttraining
+
+4. label: "What is my pre-competition routine?"
+   hint: "The night before and the morning of a match."
+   placeholder: "e.g. Still figuring this out. I know I need to sleep earlier the night before but I don't always do it."
+   db_field: routine_precomp
+
+5. label: "Which routine needs the most work right now?"
+   hint: "One honest answer."
+   placeholder: "e.g. Post-training. I rush off court without recovering properly and it affects the next day."
+   db_field: routine_weakest
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 0.5 — OBSTACLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: "0.5 OBSTACLES"
+Intro text:
+  "Every athlete faces obstacles. The ones who develop fastest are the ones
+   who can name their obstacles accurately and plan for them in advance."
+
+Fields:
+
+1. label: "What is the biggest obstacle to my development right now?"
+   hint: "Could be physical, mental, circumstantial or environmental."
+   placeholder: "e.g. School workload. Term 3 is always brutal and my training drops off. I haven't found a way to manage it yet."
+   db_field: obstacle_primary
+
+2. label: "What obstacles come up repeatedly that slow me down?"
+   hint: "Patterns — not one-off events."
+   placeholder: "e.g. I lose focus in long sessions. After about 75 minutes my decision-making drops and I stop competing hard."
+   db_field: obstacle_recurring
+
+3. label: "What do I do when things get hard — honestly?"
+   hint: "Your actual response — not the response you wish you had."
+   placeholder: "e.g. I get quiet and withdraw. I stop trying new things and just go through the motions until the session ends."
+   db_field: obstacle_response
+
+4. label: "What is my plan for when my most common obstacle shows up this program?"
+   hint: "Specific — not 'try harder'. WHEN it happens, I will..."
+   placeholder: "e.g. When I feel myself switching off mid-session, I will stop, take a breath, and set one specific micro-goal for the next 10 minutes."
+   db_field: obstacle_plan
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 0.6 — COMMITMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: "0.6 COMMITMENT"
+Intro text:
+  "This is the final module before Week 1 begins. Read it carefully.
+   Sign it when you mean it — not before."
+
+Fields:
+
+1. label: "What am I committing to for the next 12 weeks?"
+   hint: "In your own words — not a copy of the program description."
+   placeholder: "e.g. I am committing to completing every reflection honestly, acting on what the data shows, and showing up to the Capstone ready to present evidence of how I've developed."
+   db_field: commitment_statement
+
+2. label: "What will I do when I don't feel like it?"
+   hint: "Plan for the bad days now, while you feel motivated."
+   placeholder: "e.g. I'll remember why I started. And I'll do the minimum — the weekly reflection takes 5 minutes. I can always do 5 minutes."
+   db_field: commitment_baddays
+
+3. label: "What does my coach need to know about how I work best?"
+   hint: "Communication style, what motivates you, what doesn't."
+   placeholder: "e.g. I respond better to questions than instructions. And I need to understand why we're doing something before I can commit to it fully."
+   db_field: commitment_coachknow
+
+4. label: "What does my parent need to know?"
+   hint: "How you want them to support you. Be direct."
+   placeholder: "e.g. After matches I need 30 minutes before I can talk about it. Don't ask about the score before I'm ready."
+   db_field: commitment_parentknow
+
+Section divider: "SIGNATURE"
+
+5. label: "My name — as my digital commitment"
+   hint: "Type your full name to confirm you are ready to begin."
+   placeholder: "Your full name"
+   db_field: commitment_signature
+   type: "signature" (single line input, not textarea, slightly larger font)
+
+6. Read-only field showing today's date: "Date: [auto-filled]"
+
+Then: "START WEEK 1 →" button — green, only active when all 6 modules
+have been marked complete (all fields have content AND Mark as Complete clicked).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE — ADD THESE COLUMNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add these columns to the phase0_data table, or store as JSONB fields
+in the existing data column (preferred — simpler):
+
+The phase0_data table already has a data JSONB column.
+Store all guided field responses as:
+  { "vision_12_months": "...", "vision_why": "...", etc. }
+
+Auto-save each field to phase0_data.data using upsert on athlete_id + module.
+Debounce: 1500ms after last keypress.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WEEKLY REFLECTION — SAME TREATMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+While you are at it, apply the same guided field pattern to the
+three reflection fields in each weekly reflection:
+
+Current:
+  "Best training moment this week:" → blank textarea
+  "Biggest challenge:" → blank textarea
+  "Key thing I learned:" → blank textarea
+
+Replace with GuidedField including hints and placeholders:
+
+1. label: "Best training moment this week:"
+   hint: "Name the specific moment — not just 'training went well'."
+   placeholder: "e.g. My backhand cross-court was clicking in the third set of the practice match. I held the pattern under pressure."
+   db_field: best_moment
+
+2. label: "Biggest challenge:"
+   hint: "What was genuinely hard? Be specific about when and why."
+   placeholder: "e.g. The last 20 minutes of Thursday's session. I was flat and my decision-making dropped. I know why — I hadn't eaten enough beforehand."
+   db_field: biggest_challenge
+
+3. label: "Key thing I learned:"
+   hint: "One insight. Not a list — the single most useful thing."
+   placeholder: "e.g. I play better when I slow down between points. When I rush the next point I make worse decisions."
+   db_field: key_learning
+
+4. label: "My answer:" (below the Focus Question)
+   hint: "Answer the focus question above directly and honestly."
+   placeholder: "e.g. The habit I kept without being reminded was checking my sleep. I logged it every morning without anyone asking."
+   db_field: focus_answer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPETITION REVIEW — SAME TREATMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. label: "Best moment or best decision:"
+   hint: "One specific moment — describe what happened and why it worked."
+   placeholder: "e.g. 5-4 in the third, I attacked the short ball instead of playing safe. It worked because I'd practised that exact pattern."
+   db_field: best_decision
+
+2. label: "Decision I would change — and why:"
+   hint: "Not a mistake — a decision. What would you do differently and why?"
+   placeholder: "e.g. At 4-3 I went for a winner when I should have reset the point. I was trying to end it too early instead of trusting my pattern."
+   db_field: change_decision
+
+3. label: "One thing this competition taught me:"
+   hint: "What development insight came from this match?"
+   placeholder: "e.g. I handle pressure better when I have a game plan going in. When I don't have a plan I start reacting instead of competing."
+   db_field: key_learning
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION INTENTION FIELDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The WHEN / WHERE / HOW fields also need placeholders:
+
+WHEN placeholder: "e.g. Every Sunday evening after dinner"
+WHERE placeholder: "e.g. At my desk, phone in another room"
+HOW placeholder: "e.g. Open the app, set a 5-minute timer, complete all fields before I close it"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTENT RULES — DO NOT BREAK THESE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Placeholder text is grey (#CBD5E1) and italic — it disappears when typing starts
+- Hint text sits between the label and the textarea — always visible, never disappears
+- Labels are Space Mono, uppercase, 10px, tracked
+- Hints are Inter, italic, 12px, grey (#94A3B8)
+- No motivational language anywhere — no "Great job!" or "You're doing amazing!"
+- The hint is there to guide — not to praise
+- Every field auto-saves — no manual save button needed
+- "Mark as Complete" button only appears after all fields in that module have content
+  (check: value.trim().length > 0 for all fields in the module)

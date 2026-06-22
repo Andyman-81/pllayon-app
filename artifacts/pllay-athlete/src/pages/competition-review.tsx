@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useCreateCompetitionReview, useGetCompetitionReviews } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
-import { RatingRow, WriteField, ImplIntention, ModuleHeader } from '@/components/ui-elements';
+import { RatingRow, GuidedField, ImplIntention, ModuleHeader } from '@/components/ui-elements';
 import { PHASE_COLORS } from '@/lib/constants';
 
 const PHASE_COLOUR = '#FF4936';
@@ -137,9 +137,30 @@ export default function CompetitionReview() {
               <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: PHASE_COLOUR, fontWeight: 700, marginBottom: 12 }}>
                 Analysis
               </div>
-              <WriteField label="Best decision I made:" value={formData.bestDecision} onChange={v => set('bestDecision', v)} phaseColour={PHASE_COLOUR} lines={2} />
-              <WriteField label="Decision I would change:" value={formData.changeDecision} onChange={v => set('changeDecision', v)} phaseColour={PHASE_COLOUR} lines={2} />
-              <WriteField label="Key learning:" value={formData.keyLearning} onChange={v => set('keyLearning', v)} phaseColour={PHASE_COLOUR} lines={2} />
+              <GuidedField
+                label="Best moment or best decision:"
+                hint="One specific moment — describe what happened and why it worked."
+                placeholder="e.g. 5-4 in the third, I attacked the short ball instead of playing safe. It worked because I'd practised that exact pattern."
+                value={formData.bestDecision}
+                onChange={v => set('bestDecision', v)}
+                phaseColour={PHASE_COLOUR}
+              />
+              <GuidedField
+                label="Decision I would change — and why:"
+                hint="Not a mistake — a decision. What would you do differently and why?"
+                placeholder="e.g. At 4-3 I went for a winner when I should have reset the point. I was trying to end it too early instead of trusting my pattern."
+                value={formData.changeDecision}
+                onChange={v => set('changeDecision', v)}
+                phaseColour={PHASE_COLOUR}
+              />
+              <GuidedField
+                label="One thing this competition taught me:"
+                hint="What development insight came from this match?"
+                placeholder="e.g. I handle pressure better when I have a game plan going in. When I don't have a plan I start reacting instead of competing."
+                value={formData.keyLearning}
+                onChange={v => set('keyLearning', v)}
+                phaseColour={PHASE_COLOUR}
+              />
             </div>
 
             {/* Implementation intention */}

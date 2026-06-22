@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Layout, PageHeader } from '@/components/layout';
 import {
   ScorecardTable,
-  WriteField,
+  GuidedField,
   MissionBox,
   FocusQuestion,
   ImplIntention,
@@ -187,31 +187,34 @@ export default function WeeklyReflection() {
             />
           </div>
 
-          {/* Reflection write fields */}
+          {/* Reflection guided fields */}
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: phaseColour, fontWeight: 700, marginBottom: 16 }}>
+            <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: phaseColour, fontWeight: 700, marginBottom: 4 }}>
               Weekly Reflection
             </div>
-            <WriteField
-              label="Best training moment:"
+            <GuidedField
+              label="Best training moment this week:"
+              hint="Name the specific moment — not just 'training went well'."
+              placeholder="e.g. My backhand cross-court was clicking in the third set of the practice match. I held the pattern under pressure."
               value={formData.bestMoment}
               onChange={v => handleChange('bestMoment', v)}
               phaseColour={phaseColour}
-              lines={2}
             />
-            <WriteField
+            <GuidedField
               label="Biggest challenge:"
+              hint="What was genuinely hard? Be specific about when and why."
+              placeholder="e.g. The last 20 minutes of Thursday's session. I was flat and my decision-making dropped. I know why — I hadn't eaten enough beforehand."
               value={formData.biggestChallenge}
               onChange={v => handleChange('biggestChallenge', v)}
               phaseColour={phaseColour}
-              lines={2}
             />
-            <WriteField
-              label="Key learning:"
+            <GuidedField
+              label="Key thing I learned:"
+              hint="One insight. Not a list — the single most useful thing."
+              placeholder="e.g. I play better when I slow down between points. When I rush the next point I make worse decisions."
               value={formData.keyLearning}
               onChange={v => handleChange('keyLearning', v)}
               phaseColour={phaseColour}
-              lines={2}
             />
           </div>
 
@@ -219,12 +222,13 @@ export default function WeeklyReflection() {
           {weekData && (
             <div style={{ marginBottom: 28 }}>
               <FocusQuestion question={weekData.focusQuestion} phaseColour={phaseColour} />
-              <WriteField
+              <GuidedField
                 label="My answer:"
+                hint="Answer the focus question above directly and honestly."
+                placeholder="e.g. The habit I kept without being reminded was checking my sleep. I logged it every morning without anyone asking."
                 value={formData.focusAnswer}
                 onChange={v => handleChange('focusAnswer', v)}
                 phaseColour={phaseColour}
-                lines={3}
               />
             </div>
           )}
