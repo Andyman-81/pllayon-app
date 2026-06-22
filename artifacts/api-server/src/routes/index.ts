@@ -11,6 +11,8 @@ import sleepRouter from "./sleep";
 import progressRouter from "./progress";
 import scheduleRouter from "./schedule";
 import cycleRouter from "./cycle";
+import coachRouter from "./coach";
+import parentRouter from "./parent";
 
 const router: IRouter = Router();
 
@@ -26,5 +28,7 @@ router.use(sleepRouter);
 router.use(progressRouter);
 router.use(scheduleRouter);
 router.use(cycleRouter);
+router.use(coachRouter);
+router.use(parentRouter);
 
 export default router;

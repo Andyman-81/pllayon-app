@@ -2,3 +2,4 @@
 - [Pllay component naming](pllay-component-naming.md) — Scorecard is now `ScorecardTable`; ImplIntentionTrio is now `ImplIntention`; ProgressBar is `ProgressBarInline`.
 - [Pllay layout pattern](pllay-layout-pattern.md) — Layout fetches own profile+progress internally; top fixed Navbar (not bottom tabs); ProgressWidget fixed bottom-right; pages pass `currentPhase` + `currentSection` props.
 - [Pllay API progress fields](pllay-api-progress.md) — progress endpoint returns `streakWeeks` (not `streak`); use `progress.streakWeeks` in the dashboard.
+- [Coach-parent role flow](coach-parent-role-flow.md) — how role-based routing works and which tables/endpoints were built for coach/parent

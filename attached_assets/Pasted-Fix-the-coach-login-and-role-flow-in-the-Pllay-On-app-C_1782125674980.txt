@@ -1,0 +1,509 @@
+Fix the coach login and role flow in the Pllay On app.
+Currently when a user selects "COACH" role they are taken to the
+athlete registration form. This is wrong.
+
+Do not change any existing athlete functionality.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE PROBLEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current flow (broken):
+  Select COACH role → athlete registration form → athlete dashboard
+
+Required flow:
+  Select COACH role → coach registration form → coach dashboard
+  Select ATHLETE role → athlete registration form → athlete dashboard
+  Select PARENT role → parent registration form → parent dashboard
+
+The role selected at login must gate the entire experience from
+registration through to dashboard. Not just a UI toggle — a
+fundamentally different experience per role.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROLE ROUTING LOGIC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On login/register, after role is selected and stored in localStorage
+as 'po_role', route as follows:
+
+  po_role === 'athlete' → /register/athlete → /dashboard/athlete
+  po_role === 'coach'   → /register/coach   → /dashboard/coach
+  po_role === 'parent'  → /register/parent  → /dashboard/parent
+
+Each role has its own registration form, its own dashboard,
+and its own navigation structure.
+
+The athlete_id that links coach and parent to an athlete is set
+during their registration (they enter the athlete's name/email
+to link to the correct athlete account).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH REGISTRATION FORM — /register/coach
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Cover style: dark background (#111111), blue (#0B7DF1) accent
+"PLLAY ON" brand top left in green
+"COACH REGISTRATION" in Barlow Condensed, blue
+
+Fields:
+  Coach Name         (text, required)
+  Academy / Club     (text, required)
+  Specialisation     (text, e.g. "Tennis — Junior Development")
+  Email              (email, required)
+  Password           (password, required)
+
+Section divider: "LINK TO ATHLETE"
+  Athlete Email      (text — email of the athlete account to link to)
+  hint: "Enter your athlete's email address. They must already
+         have a Pllay On account."
+
+"REGISTER AS COACH" button in blue (#0B7DF1)
+
+On submit:
+  1. Create Supabase auth account
+  2. Insert into coaches table (see DB below)
+  3. Look up athletes table by athlete_email to get athlete_id
+  4. If found: link coach to athlete via coach_athlete_links table
+  5. If not found: show message "Athlete account not found.
+     Ask your athlete to register first, then come back."
+  6. On success: redirect to /dashboard/coach
+
+DATABASE:
+
+create table coaches (
+  id uuid primary key references auth.users(id),
+  created_at timestamptz default now(),
+  name text not null,
+  club text,
+  specialisation text,
+  email text
+);
+
+create table coach_athlete_links (
+  id uuid primary key default gen_random_uuid(),
+  coach_id uuid references coaches(id) on delete cascade,
+  athlete_id uuid references athletes(id) on delete cascade,
+  linked_at timestamptz default now(),
+  unique(coach_id, athlete_id)
+);
+
+alter table coaches enable row level security;
+alter table coach_athlete_links enable row level security;
+
+create policy "coach_own" on coaches
+  using (auth.uid() = id);
+create policy "coach_links_own" on coach_athlete_links
+  using (auth.uid() = coach_id);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARENT REGISTRATION FORM — /register/parent
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Cover style: dark background (#111111), amber (#D97706) accent
+"PARENT REGISTRATION" in Barlow Condensed, amber
+
+Fields:
+  Parent Name        (text, required)
+  Email              (email, required)
+  Password           (password, required)
+
+Section divider: "LINK TO ATHLETE"
+  Athlete Email      (text — email of the athlete account to link)
+  hint: "Enter your child's email address. They must already
+         have a Pllay On account."
+
+"REGISTER AS PARENT" button in amber (#D97706)
+
+On submit:
+  1. Create Supabase auth account
+  2. Insert into parents table
+  3. Look up athletes table by athlete_email
+  4. If found: link via parent_athlete_links table
+  5. If not found: show "Athlete account not found" message
+  6. On success: redirect to /dashboard/parent
+
+DATABASE:
+
+create table parents (
+  id uuid primary key references auth.users(id),
+  created_at timestamptz default now(),
+  name text not null,
+  email text
+);
+
+create table parent_athlete_links (
+  id uuid primary key default gen_random_uuid(),
+  parent_id uuid references parents(id) on delete cascade,
+  athlete_id uuid references athletes(id) on delete cascade,
+  linked_at timestamptz default now(),
+  unique(parent_id, athlete_id)
+);
+
+alter table parents enable row level security;
+alter table parent_athlete_links enable row level security;
+
+create policy "parent_own" on parents
+  using (auth.uid() = id);
+create policy "parent_links_own" on parent_athlete_links
+  using (auth.uid() = parent_id);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH DASHBOARD — /dashboard/coach
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Header:
+  "COACH" badge in blue (#0B7DF1) top left
+  Coach name in Barlow Condensed
+  "TENNIS — COACH VIEW" label below in Space Mono grey
+
+Athlete selector (if coach has multiple linked athletes — V1 shows one):
+  Show linked athlete name as a card at top:
+  "[Athlete Name]" — Phase N — Week N
+  Tapping loads that athlete's data into all coach views below.
+
+FOUR COACH MODULE SECTIONS:
+
+── SECTION 1: PROGRAM OVERVIEW ──────────
+
+Show the linked athlete's current status:
+  Current phase badge (phase colour)
+  Current week number
+  Weeks completed / 12
+  Overall completion %
+  Last reflection date
+
+Read-only. Coach sees athlete progress at a glance.
+
+── SECTION 2: WEEKLY SCHEDULE (coach edits) ──
+
+"THIS WEEK'S SCHEDULE" heading
+Direct link to /schedule/week/[currentWeek] in full edit mode.
+Show a summary of sessions already added this week (read from weekly_schedules).
+If no sessions: "No sessions scheduled yet."
+  → "BUILD SCHEDULE" button in blue → /schedule/week/[currentWeek]
+If sessions exist: show day-by-day summary list.
+  → "EDIT SCHEDULE" button
+
+── SECTION 3: 12-WEEK CYCLE PLAN (coach edits) ──
+
+"12-WEEK PLAN" heading
+Show the phase timeline grid (same as /cycle-planner but compact).
+  Weeks 1–4: green strip
+  Weeks 5–8: yellow strip
+  Weeks 9–12: red strip
+  Event dots showing tournaments/testing already added.
+
+"OPEN FULL PLANNER" button → /cycle-planner in edit mode.
+
+If plan not published: "PUBLISH PLAN" button in blue.
+  → sets published = true on all cycle_plan rows for this athlete.
+If plan published: show "Published ✓" in green.
+
+── SECTION 4: ATHLETE REVIEWS ──────────
+
+Three cards side by side (or stacked on mobile):
+
+Card 1: PHASE 0 STATUS
+  Checklist of 6 modules with ✓ or ○ status.
+  Read-only. Pulled from phase0_data completed_at fields.
+
+Card 2: WEEKLY REFLECTIONS
+  List of completed weeks with dates.
+  Tap any week → opens /week/[N] in read-only coach view.
+  Coach can see all athlete responses but cannot edit them.
+
+Card 3: COMPETITION REVIEWS
+  List of submitted competition reviews with dates and results.
+  Tap any → opens full review in read-only view.
+
+── SECTION 5: COACH REVIEW (capstone prep) ──
+
+"MY COACH REVIEW" heading
+Only visible when athlete is in Week 10+ or Capstone is unlocked.
+Link to /coach-review page (see below).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH REVIEW PAGE — /coach-review
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is Module 4.3 from the original program — the coach's
+independent assessment completed before the Capstone session.
+
+Route: /coach-review
+Accessible from coach dashboard only.
+
+Header:
+  "COACH REVIEW — MODULE 4.3"
+  Eyebrow: "Complete independently before the Capstone session"
+  Callout: "Write your assessment before reviewing it with the athlete.
+            Your independent observation is more valuable than one
+            formed in the room."
+
+5-dimension scorecard (same Scorecard component, ratings 1–5):
+  Technical development across 12 weeks
+  Tactical development across 12 weeks
+  Physical development across 12 weeks
+  Attitude and coachability
+  Self-awareness — does the athlete understand their own development?
+
+Observation table (GuidedField for each):
+
+  label: "Biggest observable improvement"
+  hint: "Be specific — not 'they improved overall'"
+  placeholder: "e.g. Backhand return consistency under pressure.
+                In Week 1 this was the primary weakness —
+                by Week 10 it had become a reliable shot."
+
+  label: "Biggest remaining constraint"
+  hint: "What is still limiting overall performance most?"
+  placeholder: "e.g. Decision-making speed when fatigued.
+                Quality drops significantly in the third set."
+
+  label: "Technical priority for next cycle"
+  placeholder: "e.g. Serve kick development — ready physically now post-PHV."
+
+  label: "Tactical priority for next cycle"
+  placeholder: "e.g. Net approach patterns — currently avoids the net under pressure."
+
+  label: "Physical / S&C priority for next cycle"
+  placeholder: "e.g. Rotational power — strength base is now sufficient to load it."
+
+  label: "Competition level recommendation"
+  hint: "What level should this athlete be targeting next cycle?"
+  placeholder: "e.g. Ready for consistent national ranking events.
+                State level is no longer the developmental stretch."
+
+  label: "Behaviour or mindset note"
+  hint: "One observation about how this athlete approaches development"
+  placeholder: "e.g. Significantly more self-aware by Week 12.
+                Uses PHV language unprompted. Takes ownership of review sessions."
+
+  label: "Additional observations"
+  placeholder: "Anything else relevant to next cycle planning."
+
+"SAVE COACH REVIEW" button in blue.
+Auto-saves with 1500ms debounce as coach types.
+
+DATABASE:
+
+create table coach_reviews (
+  id uuid primary key default gen_random_uuid(),
+  coach_id uuid references coaches(id) on delete cascade,
+  athlete_id uuid references athletes(id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  technical_rating int,
+  tactical_rating int,
+  physical_rating int,
+  coachability_rating int,
+  awareness_rating int,
+  biggest_improvement text,
+  remaining_constraint text,
+  technical_priority text,
+  tactical_priority text,
+  physical_priority text,
+  competition_recommendation text,
+  behaviour_note text,
+  additional_notes text
+);
+
+alter table coach_reviews enable row level security;
+create policy "coach_review_own" on coach_reviews
+  using (auth.uid() = coach_id);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH BOTTOM NAVIGATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Coach gets their own bottom nav (different from athlete nav):
+
+  Tab 1: HOME        → /dashboard/coach
+  Tab 2: SCHEDULE    → /schedule/week/[currentWeek]  (edit mode)
+  Tab 3: 12WK PLAN   → /cycle-planner                (edit mode)
+  Tab 4: ATHLETE     → athlete read-only views
+  Tab 5: MY REVIEW   → /coach-review
+
+All tabs in blue (#0B7DF1) when active (coach colour).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARENT DASHBOARD — /dashboard/parent
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Header:
+  "PARENT" badge in amber (#D97706)
+  Parent name in Barlow Condensed
+  Linked athlete name below: "Viewing: [Athlete Name]"
+
+THREE SECTIONS:
+
+── SECTION 1: ATHLETE STATUS ────────────
+  Current phase + week (read-only)
+  Overall completion %
+  Last reflection date
+  "Your athlete is on track" / "Reflection overdue" status
+  (overdue if no reflection in last 8 days)
+
+── SECTION 2: THIS WEEK ─────────────────
+  This week's mission (read-only, from WEEK_DATA)
+  Weekly schedule summary if published
+    (shows session types and times for the week — read only)
+  One callout box always visible:
+    Title: "YOUR QUESTION THIS WEEK"
+    Body: the parent question for the current week
+    (use the same parent questions from the HTML workbook)
+
+  Parent questions per week — store as PARENT_QUESTIONS constant:
+    Week 1:  "What did you work on today?"
+    Week 2:  "How was your energy in training this week?"
+    Week 3:  "What were you working on in your sessions this week?"
+    Week 4:  "What are you most proud of from this first month?"
+    Week 5:  "What was the hardest part this week?"
+    Week 6:  "What did you try when it got hard?"
+    Week 7:  "What did you learn from that match?"
+    Week 8:  "What changed about you as a competitor in the last 4 weeks?"
+    Week 9:  "What's your plan for the match?"
+    Week 10: "What decision are you most proud of from today?"
+    Week 11: "What do you need from us the night before a match?"
+    Week 12: "What are you most proud of from this 12-week program?"
+
+── SECTION 3: MY OBSERVATIONS ───────────
+  "MY WEEKLY OBSERVATION" heading
+  One GuidedField per week (saves separately, parent-owned):
+
+    label: "What I noticed this week"
+    hint: "One honest observation — not your assessment of the result"
+    placeholder: "e.g. He seemed more focused in training this week.
+                  Less distracted between drills than last month."
+
+  "SAVE OBSERVATION" button in amber.
+  Shows last 3 saved observations below (date + preview, tap to expand).
+
+  At Month 1 Check-In (Week 4) and Month 2 (Week 8):
+  Show an expanded Parent Observations form (from the workbook):
+    Same 3 ratings + 3 text fields as in the HTML workbook.
+    Saves to parent_checkin_observations table.
+
+DATABASE:
+
+create table parent_weekly_observations (
+  id uuid primary key default gen_random_uuid(),
+  parent_id uuid references parents(id) on delete cascade,
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null,
+  observation text,
+  created_at timestamptz default now(),
+  unique(parent_id, week_number)
+);
+
+create table parent_checkin_observations (
+  id uuid primary key default gen_random_uuid(),
+  parent_id uuid references parents(id) on delete cascade,
+  athlete_id uuid references athletes(id) on delete cascade,
+  month_number int not null,
+  effort_rating int,
+  engagement_rating int,
+  positive_change_rating int,
+  most_positive text,
+  do_differently text,
+  capstone_question text,
+  created_at timestamptz default now(),
+  unique(parent_id, month_number)
+);
+
+alter table parent_weekly_observations enable row level security;
+alter table parent_checkin_observations enable row level security;
+
+create policy "parent_obs_own" on parent_weekly_observations
+  using (auth.uid() = parent_id);
+create policy "parent_checkin_own" on parent_checkin_observations
+  using (auth.uid() = parent_id);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARENT BOTTOM NAVIGATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Tab 1: HOME        → /dashboard/parent
+  Tab 2: THIS WEEK   → shows current week mission + question
+  Tab 3: SCHEDULE    → /schedule/week/[currentWeek]  (read only)
+  Tab 4: 12WK PLAN   → /cycle-planner                (read only)
+  Tab 5: MY NOTES    → parent observations list
+
+All tabs in amber (#D97706) when active.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LOGIN PAGE UPDATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Update the login page to route correctly after login:
+
+After successful Supabase auth login:
+  1. Check localStorage for 'po_role'
+  2. If po_role === 'coach':
+       Check if coaches table has a row for this auth.uid()
+       If yes → /dashboard/coach
+       If no  → /register/coach (complete registration)
+  3. If po_role === 'athlete':
+       Check athletes table → /dashboard/athlete
+  4. If po_role === 'parent':
+       Check parents table → /dashboard/parent
+  5. If no role in localStorage:
+       Show role selector before routing
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATA ACCESS RULES SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Coach can READ:
+  athletes (linked athlete only)
+  weekly_reflections (read-only view)
+  competition_reviews (read-only view)
+  phase0_data (completion status only)
+  monthly_checkins (read-only view)
+  cycle_plan (full edit)
+  weekly_schedules (full edit)
+
+Coach can WRITE:
+  coaches (own row)
+  coach_athlete_links (own rows)
+  cycle_plan (for linked athlete)
+  weekly_schedules (for linked athlete)
+  coach_reviews (own rows)
+
+Parent can READ:
+  athletes (linked athlete — name, phase, week only)
+  weekly_schedules (published only)
+  cycle_plan (published only)
+  WEEK_DATA constant (missions and parent questions)
+
+Parent can WRITE:
+  parents (own row)
+  parent_weekly_observations (own rows)
+  parent_checkin_observations (own rows)
+
+Athlete can READ:
+  weekly_schedules (published only — cannot edit coach sessions)
+  cycle_plan (published only — cannot edit coach events)
+  coach_reviews (own — read only after Capstone)
+
+Athlete can WRITE:
+  All existing athlete tables (unchanged)
+  athlete_day_notes
+  cycle_athlete_goals
+  sleep_log
+  session_logs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Athlete dashboard (/dashboard/athlete) — any existing functionality
+  - Weekly reflections
+  - Phase 0 modules and guided fields
+  - Competition review (once the import error is fixed)
+  - Appendix pages
+  - All existing database tables and RLS policies
+  - Design tokens, fonts, colours
+  - Bottom nav structure already built for athlete
+  - Progress tracker widget
+  - Auto-save behaviour
