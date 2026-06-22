@@ -1,0 +1,160 @@
+Make three updates to the Pllay On Athlete Digital Workbook.
+Do not change any existing functionality or content.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE 1 — NAVIGATION BAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The current nav bar only shows the brand name and a few text links.
+Replace it with a full persistent bottom navigation bar
+AND a simplified top bar.
+
+TOP BAR (keep existing, minor update):
+  Left:  "PLLAY ON" brand name in green (#10AC6E), Barlow Condensed
+  Centre: Athlete name + current phase badge (already exists — keep)
+  Right: Profile/role indicator showing current role pill
+         (ATHLETE / COACH / PARENT in their respective colours)
+
+BOTTOM NAVIGATION BAR (new — mobile app style):
+  Fixed to bottom of screen on all pages.
+  Height: 64px
+  Background: #0F172A (ink)
+  Border-top: 1px solid rgba(255,255,255,.1)
+
+  Six tab items evenly spaced:
+
+  Tab 1: HOME
+    Icon: house/home icon (simple SVG or unicode ⌂)
+    Label: "HOME"
+    Route: /dashboard
+    Active colour: current phase colour
+
+  Tab 2: WEEK
+    Icon: calendar icon
+    Label: "WEEK [N]"  (shows current week number dynamically)
+    Route: /week/[currentWeek]
+    Active colour: current phase colour
+
+  Tab 3: SCHEDULE
+    Icon: grid/timetable icon
+    Label: "SCHEDULE"
+    Route: /schedule/week/[currentWeek]
+    Active colour: current phase colour
+
+  Tab 4: PLAN
+    Icon: timeline/chart icon
+    Label: "12WK PLAN"
+    Route: /cycle-planner
+    Active colour: #0B7DF1 (blue — always, not phase colour)
+
+  Tab 5: TRAINING
+    Icon: dumbbell or lightning bolt icon
+    Label: "TRAINING"
+    Tapping opens a small menu above the tab bar with 4 options:
+      - Appendix A: Warm-Up       → /appendix/warmup
+      - Appendix B: Gym S&C       → /appendix/gym
+      - Appendix C: Body Mgmt     → /appendix/body
+      - Appendix D: Cooldown      → /appendix/cooldown
+    Menu style: dark card (#1E293B) slides up above the tab,
+    each option as a full-width row with label and arrow →
+    Tapping anywhere else closes the menu.
+    Active colour: #10AC6E (green — always)
+
+  Tab 6: MORE
+    Icon: three dots or grid icon
+    Label: "MORE"
+    Tapping opens a menu above the tab bar with:
+      - Competition Review   → /competition-review
+      - Progress Summary     → /progress
+      - Phase 0 Setup        → /phase/0
+      - Capstone             → /capstone (greyed if locked)
+    Active colour: #64748B (grey)
+
+CSS for bottom nav:
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 64px;
+    background: #0F172A;
+    border-top: 1px solid rgba(255,255,255,.1);
+    display: flex;
+    align-items: stretch;
+    z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .bottom-nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    transition: background .15s;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+  .bottom-nav-tab:hover { background: rgba(255,255,255,.05); }
+  .bottom-nav-icon {
+    font-size: 18px;
+    color: rgba(255,255,255,.35);
+    transition: color .15s;
+  }
+  .bottom-nav-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.35);
+    transition: color .15s;
+  }
+  .bottom-nav-tab.active .bottom-nav-icon,
+  .bottom-nav-tab.active .bottom-nav-label {
+    color: var(--active-colour);
+  }
+  .bottom-nav-tab.active {
+    border-top: 2px solid var(--active-colour);
+  }
+
+BODY PADDING:
+  Add padding-bottom: 80px to the main content area on all pages
+  so content is not hidden behind the bottom nav.
+
+REMOVE the existing quick links section from the bottom of the dashboard.
+The bottom nav replaces it entirely.
+Keep the stats row (Weeks Done / Reflections / Streak / Complete %).
+Keep the Program Phases strip.
+Keep the Upcoming Weeks grid.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE 2 — APPENDIX PAGES (build the content)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The appendix routes exist but the pages are empty.
+Build the full content for all four appendix pages.
+Content is static — no database needed. No editing.
+These are reference protocol pages the athlete reads and follows.
+
+Each appendix page uses the same layout:
+  - Top: phase-coloured eyebrow label + Barlow Condensed title
+  - Workout cards with header (badge, title, duration)
+  - Exercise rows inside each card
+  - Coaching note at the bottom of each card
+  - No write fields — read only
+
+Use these exact components already in the codebase:
+  WorkoutCard, ExerciseRow, Callout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+APPENDIX A — /appendix/warmup
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Page title: "DYNAMIC WARM-UP PROTOCOL"
+Eyebrow: "APPENDIX A — USE BEFORE EVERY SESSION"
+Intro callout:
+  Title: "Complete this before every training session and match."
+  Body: "Total time: 12–15 minutes. Quality over speed.
+         The warm-up predicts the quality of the session that follows."
+
+CARD 1 — badge: "STEP 1" (

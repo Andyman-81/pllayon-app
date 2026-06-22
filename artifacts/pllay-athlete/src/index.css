@@ -373,10 +373,60 @@ body {
   font-weight: 700;
 }
 
+/* ─── Bottom navigation bar ─── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 64px;
+  background: #0F172A;
+  border-top: 1px solid rgba(255,255,255,.1);
+  display: flex;
+  align-items: stretch;
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: background .15s;
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-top: 2px solid transparent;
+}
+.bottom-nav-tab:hover { background: rgba(255,255,255,.05); }
+.bottom-nav-icon {
+  font-size: 18px;
+  color: rgba(255,255,255,.35);
+  transition: color .15s;
+  line-height: 1;
+}
+.bottom-nav-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  transition: color .15s;
+  line-height: 1;
+}
+.bottom-nav-tab.active .bottom-nav-icon,
+.bottom-nav-tab.active .bottom-nav-label {
+  color: var(--active-colour);
+}
+.bottom-nav-tab.active {
+  border-top: 2px solid var(--active-colour);
+}
+
 /* ─── Progress widget ─── */
 .progress-widget {
   position: fixed;
-  bottom: 20px;
+  bottom: 76px;
   right: 20px;
   background: rgba(15,23,42,.96);
   border: 1px solid rgba(255,255,255,.1);
