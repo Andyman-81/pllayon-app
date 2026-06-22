@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useCreateCompetitionReview, useGetCompetitionReviews } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
-import { RatingRow, GuidedField, ImplIntention, ModuleHeader } from '@/components/ui-elements';
+import { RatingRow, GuidedField, WriteField, ImplIntention, ModuleHeader } from '@/components/ui-elements';
 import { PHASE_COLORS } from '@/lib/constants';
 
 const PHASE_COLOUR = '#FF4936';
