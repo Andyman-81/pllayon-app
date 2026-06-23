@@ -59,6 +59,8 @@ export default function CoachDashboard() {
     }
   }, [error, navigate]);
 
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
   if (isLoading) return <Spinner />;
   if (!data) return null;
 
@@ -81,6 +83,14 @@ export default function CoachDashboard() {
   });
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
 
+  interface InjuryFlagSummary { id: number; status: string; bodyArea: string; severity: number }
+  const { data: injuryFlags = [] } = useQuery<InjuryFlagSummary[]>({
+    queryKey: ['coach-injury-flags'],
+    queryFn: () => apiFetch('/injury'),
+    enabled: !!linkedAthlete,
+  });
+  const openFlagCount = injuryFlags.filter(f => f.status === 'open').length;
+
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return (
@@ -95,6 +105,17 @@ export default function CoachDashboard() {
         </div>
         <ProfileMenu roleColour={BLUE} />
       </nav>
+
+      {/* ── Injury banner ── */}
+      {!bannerDismissed && openFlagCount > 0 && (
+        <div className="injury-banner">
+          <span>⚠ {openFlagCount} injury flag{openFlagCount > 1 ? 's' : ''} require your response</span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span className="injury-banner-link" onClick={() => navigate('/injury')}>Review now →</span>
+            <button onClick={() => setBannerDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FF4936', fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px 0' }}>
 
@@ -266,6 +287,23 @@ export default function CoachDashboard() {
                       ))
                     }
                   </div>
+                  {/* Injury flags */}
+                  <div
+                    onClick={() => navigate('/injury')}
+                    style={{ background: '#fff', border: `1px solid ${openFlagCount > 0 ? '#FFE4E1' : 'var(--grey1)'}`, borderLeft: `4px solid ${openFlagCount > 0 ? '#FF4936' : '#10AC6E'}`, borderRadius: '0 10px 10px 0', padding: '16px', cursor: 'pointer' }}
+                  >
+                    <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Injury Flags</div>
+                    {openFlagCount > 0 ? (
+                      <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: '#FF4936', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                        {openFlagCount} Open Flag{openFlagCount > 1 ? 's' : ''} →
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: '#10AC6E', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                        ✓ No open flags
+                      </div>
+                    )}
+                  </div>
+
                   {/* Competition reviews */}
                   <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
                     <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Competition Reviews</div>

@@ -14,11 +14,22 @@ interface DailyStats {
   physicalFlagCount: number;
 }
 
+interface InjuryStats {
+  openCount: number;
+  resolvedCount: number;
+  avgSeverity: number | null;
+  total: number;
+}
+
 export default function Progress() {
   const { data: progress, isLoading } = useGetProgress();
   const { data: dailyStats } = useQuery<DailyStats>({
     queryKey: ['daily-reflection-stats'],
     queryFn: () => apiFetch('/daily-reflection/stats'),
+  });
+  const { data: injuryStats } = useQuery<InjuryStats>({
+    queryKey: ['injury-stats'],
+    queryFn: () => apiFetch('/injury/stats'),
   });
 
   if (isLoading || !progress) {
@@ -152,6 +163,48 @@ export default function Progress() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Physical Status ── */}
+        <div>
+          <h3 className="font-heading text-xl uppercase mb-4" style={{ color: '#FF4936' }}>Physical Status</h3>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-card border p-4 rounded-xl text-center">
+              <div className="font-mono text-xs text-muted-foreground mb-1">OPEN FLAGS</div>
+              <div className="font-heading text-4xl" style={{ color: (injuryStats?.openCount ?? 0) > 0 ? '#FF4936' : '#10AC6E' }}>
+                {injuryStats?.openCount ?? 0}
+              </div>
+            </div>
+            <div className="bg-card border p-4 rounded-xl text-center">
+              <div className="font-mono text-xs text-muted-foreground mb-1">RESOLVED</div>
+              <div className="font-heading text-4xl" style={{ color: '#10AC6E' }}>
+                {injuryStats?.resolvedCount ?? 0}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card border p-4 rounded-xl mb-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="font-mono text-xs text-muted-foreground mb-1">AVG SEVERITY</div>
+                <div className="font-heading text-3xl" style={{ color: injuryStats?.avgSeverity ? '#FF4936' : '#10AC6E' }}>
+                  {injuryStats?.avgSeverity != null ? `${injuryStats.avgSeverity}/5` : '—'}
+                </div>
+              </div>
+              <div className="font-mono text-xs text-muted-foreground text-right max-w-[160px] leading-relaxed">
+                All injury flags averaged
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => window.location.href = '/injury'}
+            className="w-full"
+            style={{ padding: '14px', background: 'transparent', border: '1.5px solid #FF4936', borderRadius: 8, fontFamily: 'Space Mono, monospace', fontWeight: 700, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#FF4936', cursor: 'pointer', minHeight: 48 }}
+          >
+            View All Flags →
+          </button>
         </div>
 
       </div>

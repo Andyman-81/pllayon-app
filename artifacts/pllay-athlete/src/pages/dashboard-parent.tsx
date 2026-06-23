@@ -181,6 +181,22 @@ export default function ParentDashboard() {
               )}
             </div>
 
+            {/* ── Section 2b: Flag a Concern ── */}
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ background: '#fff', border: `1.5px solid #FF4936`, borderRadius: 10, padding: '18px 18px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: '#FF4936', fontWeight: 700, marginBottom: 4 }}>Physical Concern?</div>
+                  <div style={{ fontFamily: 'var(--font-b)', fontSize: 13, color: 'var(--grey)', lineHeight: 1.4, maxWidth: 220 }}>Flag an injury or concern directly to the coach.</div>
+                </div>
+                <button
+                  onClick={() => navigate('/injury/new')}
+                  style={{ padding: '12px 18px', background: '#FF4936', color: '#fff', border: 'none', borderRadius: 8, fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0, minHeight: 48 }}
+                >
+                  Flag a Concern →
+                </button>
+              </div>
+            </div>
+
             {/* ── Section 3: My Observations ── */}
             <div style={{ marginBottom: 32 }}>
               <SectionHead title="My Weekly Observation" />

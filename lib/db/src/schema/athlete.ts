@@ -174,3 +174,32 @@ export const dailyReflectionsTable = pgTable("daily_reflections", {
 }));
 
 export type DailyReflection = typeof dailyReflectionsTable.$inferSelect;
+
+export const injuryFlagsTable = pgTable("injury_flags", {
+  id: serial("id").primaryKey(),
+  athleteId: integer("athlete_id").notNull(),
+  loggedBy: text("logged_by").notNull(),
+  loggedByName: text("logged_by_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  bodyArea: text("body_area").notNull().default(''),
+  side: text("side"),
+  concernType: text("concern_type").notNull().default(''),
+  severity: integer("severity").notNull().default(1),
+  onset: text("onset").notNull().default(''),
+  whenOccurred: text("when_occurred"),
+  description: text("description").notNull().default(''),
+  affectsTraining: boolean("affects_training").default(true),
+  weekNumber: integer("week_number"),
+  dayOfWeek: text("day_of_week"),
+  status: text("status").notNull().default('open'),
+  coachResponse: text("coach_response"),
+  coachAction: text("coach_action"),
+  coachRespondedAt: timestamp("coach_responded_at"),
+  trainingModification: text("training_modification"),
+  returnToFullTraining: text("return_to_full_training"),
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpDate: text("follow_up_date"),
+  resolvedAt: timestamp("resolved_at"),
+});
+export type InjuryFlag = typeof injuryFlagsTable.$inferSelect;

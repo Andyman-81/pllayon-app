@@ -21,6 +21,9 @@ import RegisterParent from '@/pages/register-parent';
 import CoachDashboard from '@/pages/dashboard-coach';
 import ParentDashboard from '@/pages/dashboard-parent';
 import CoachReview from '@/pages/coach-review';
+import InjuryNew from '@/pages/injury-new';
+import InjuryList from '@/pages/injury-list';
+import InjuryDetail from '@/pages/injury-detail';
 import { getRole, saveRole, type Role } from '@/lib/useRole';
 
 const queryClient = new QueryClient({
@@ -161,6 +164,11 @@ function Router() {
       <Route path="/pre-comp"                       component={() => <ProtectedRoute component={PreComp} />} />
       <Route path="/schedule/week/:weekNum"         component={() => <ProtectedRoute component={SchedulePage} />} />
       <Route path="/cycle-planner"                  component={() => <ProtectedRoute component={CyclePlannerPage} />} />
+
+      {/* Injury / Physical Flag routes */}
+      <Route path="/injury/new"  component={() => <ProtectedRoute component={InjuryNew} />} />
+      <Route path="/injury/:id"  component={() => <ProtectedRoute component={InjuryDetail} />} />
+      <Route path="/injury"      component={() => <ProtectedRoute component={InjuryList} />} />
 
       {/* Coach routes */}
       <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach} />} />

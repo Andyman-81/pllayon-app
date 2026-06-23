@@ -244,6 +244,21 @@ export function DailyReflectionModal({ weekNumber, dayOfWeek, phaseColour, exist
             onChange={v => update('physicalStatus', v)}
             phaseColour={phaseColour}
           />
+          <div style={{ marginTop: -14, marginBottom: 20 }}>
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (weekNumber) params.set('weekNumber', String(weekNumber));
+                if (form.dayOfWeek) params.set('dayOfWeek', form.dayOfWeek);
+                if (form.sessionType) params.set('sessionType', form.sessionType);
+                window.location.href = `/injury/new?${params.toString()}`;
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-b)', fontSize: 12, color: '#FF4936', textDecoration: 'underline' }}
+            >
+              Flag this to your coach →
+            </button>
+          </div>
 
           {/* Session rating */}
           <div style={{ marginBottom: 20 }}>

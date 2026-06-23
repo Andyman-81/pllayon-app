@@ -851,3 +851,22 @@ body {
   color: #94A3B8;
   margin-bottom: 10px;
 }
+
+/* ─── Injury Flags ─── */
+.injury-banner {
+  background: #FFF5F5;
+  border-left: 4px solid #FF4936;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: #FF4936;
+}
+.injury-banner-link {
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}

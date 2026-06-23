@@ -1,0 +1,503 @@
+Add an injury and physical flag system to the Pllay On app.
+Do not change any existing functionality.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Three roles interact with this system:
+
+ ATHLETE  → logs the injury or physical concern
+ PARENT   → can also log on behalf of athlete + receives updates
+ COACH    → receives the flag, responds with course of action
+
+Flow:
+ Athlete or Parent logs flag
+   → Coach is notified (in-app banner)
+   → Coach reviews and responds
+   → Athlete and Parent see the response
+   → Flag is resolved or escalated
+
+This is not a medical system.
+It is a communication and tracking tool.
+Always include a disclaimer that serious injuries
+require medical attention — not a coach response.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+create table injury_flags (
+ id uuid primary key default gen_random_uuid(),
+ athlete_id uuid references athletes(id) on delete cascade,
+ logged_by text not null, -- 'athlete' or 'parent'
+ logged_by_name text,
+ created_at timestamptz default now(),
+ updated_at timestamptz default now(),
+
+ -- Injury details
+ body_area text not null,
+ side text, -- 'left', 'right', 'both', 'centre', null
+ concern_type text not null, -- 'pain', 'tightness', 'swelling', 'fatigue', 'other'
+ severity int not null check (severity between 1 and 5),
+ onset text not null, -- 'sudden', 'gradual'
+ when_occurred text, -- free text e.g. "During Thursday S&C session"
+ description text not null,
+ affects_training boolean default true,
+ week_number int,
+ day_of_week text,
+
+ -- Status
+ status text default 'open',
+ -- 'open', 'coach_reviewed', 'monitoring', 'cleared', 'referred'
+
+ -- Coach response
+ coach_response text,
+ coach_action text,
+ -- 'continue_modified', 'rest', 'reduce_load',
+ -- 'physio_referral', 'monitor', 'cleared_to_train'
+ coach_responded_at timestamptz,
+ training_modification text,
+ return_to_full_training text, -- estimated date or condition
+
+ -- Follow-up
+ follow_up_required boolean default false,
+ follow_up_date text,
+ resolved_at timestamptz
+);
+
+alter table injury_flags enable row level security;
+
+create policy "injury_athlete_own" on injury_flags
+ using (auth.uid() = athlete_id);
+
+-- Coaches can read flags for their linked athletes
+create policy "injury_coach_read" on injury_flags
+ for select using (
+   exists (
+     select 1 from coach_athlete_links
+     where coach_id = auth.uid()
+     and athlete_id = injury_flags.athlete_id
+   )
+ );
+
+-- Coaches can update (respond to) flags for their linked athletes
+create policy "injury_coach_update" on injury_flags
+ for update using (
+   exists (
+     select 1 from coach_athlete_links
+     where coach_id = auth.uid()
+     and athlete_id = injury_flags.athlete_id
+   )
+ );
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INJURY FLAG ENTRY FORM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Route: /injury/new
+Accessible from:
+ - Bottom nav TRAINING menu (athlete) → "Log Injury / Concern"
+ - Daily reflection modal → physical_status field → "Flag this →" link
+ - Parent dashboard → "Flag a Concern" button
+ - Coach dashboard → "Log for Athlete" button
+
+Header:
+ "INJURY & PHYSICAL CONCERN LOG"
+ Barlow Condensed, #FF4936 (red — signals importance)
+ Eyebrow: "FLAG TO COACH" Space Mono uppercase
+
+Medical disclaimer callout (always visible at top):
+ border-color: #FF4936
+ Title: "Important"
+ Body: "For serious or acute injuries, seek medical attention
+        immediately. Do not wait for a coach response.
+        This tool is for communication — not medical advice."
+
+━━ STEP 1: BODY AREA ━━━━━━━━━━━━━━━━━━━
+
+Label: "WHERE IS THE CONCERN?"
+
+Visual body area selector — two columns of pill buttons:
+
+ Left side:          Right side:
+ Head / Neck         Shoulder
+ Upper Back          Elbow / Forearm
+ Lower Back          Wrist / Hand
+ Hip / Glute         Knee
+ Groin / Adductor    Shin / Calf
+ Hamstring           Ankle
+ Quad                Foot / Toe
+ General Fatigue     Other
+
+Selected pill:
+ background: #FF4936, white text
+Unselected:
+ border: 1px solid #E2E8F0, grey text
+
+Below pill grid, if "Other" selected:
+ Text field: "Describe the area"
+
+Side selector (shows after body area selected, if relevant):
+ Label: "WHICH SIDE?"
+ Four pills: LEFT  RIGHT  BOTH  CENTRE
+ Hide this row if "General Fatigue" or "Other" selected.
+
+━━ STEP 2: CONCERN TYPE ━━━━━━━━━━━━━━━━
+
+Label: "WHAT TYPE OF CONCERN?"
+
+Five pills (single select):
+ PAIN        TIGHTNESS      SWELLING
+ FATIGUE     OTHER
+
+━━ STEP 3: SEVERITY ━━━━━━━━━━━━━━━━━━━━
+
+Label: "HOW SEVERE IS IT RIGHT NOW?"
+
+Five large rating boxes (same .rb component):
+ 1    2    3    4    5
+
+Scale labels below:
+ Left:  "Mild — noticeable but not limiting"
+ Right: "Severe — significantly limiting"
+
+Severity colour coding (applies to the flag card after submission):
+ 1–2: amber  (#F5B809)  — monitor
+ 3:   orange (#F97316)  — attention needed
+ 4–5: red    (#FF4936)  — urgent
+
+━━ STEP 4: ONSET + TIMING ━━━━━━━━━━━━━━
+
+Label: "HOW DID IT START?"
+Two pills: SUDDEN  GRADUAL
+
+Label: "WHEN DID IT OCCUR?"  Space Mono uppercase
+GuidedField:
+ hint: "Which session, day or activity"
+ placeholder: "e.g. During Thursday's S&C session — Nordic curls
+               / Started gradually over the last 3 days"
+ db_field: when_occurred
+
+━━ STEP 5: DESCRIPTION ━━━━━━━━━━━━━━━━━
+
+GuidedField:
+ label: "DESCRIBE WHAT YOU ARE EXPERIENCING"
+ hint: "Be specific — what makes it better or worse?"
+ placeholder: "e.g. Sharp pain on the outside of my left knee
+               when I change direction quickly. Aching at rest.
+               Worse going downstairs. No swelling visible."
+ db_field: description
+ required: true
+
+━━ STEP 6: TRAINING IMPACT ━━━━━━━━━━━━━
+
+Label: "IS THIS AFFECTING YOUR TRAINING?"
+Two large pill buttons:
+ YES — I am modifying or avoiding sessions
+ NO — I can train normally but wanted to flag it
+
+━━ SUBMIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"FLAG TO COACH" button
+ Full width, #FF4936 background, white text
+ Barlow Condensed uppercase
+ Only active when: body_area, concern_type, severity and
+ description all have values
+
+On submit:
+ - Saves to injury_flags table
+ - Sets status = 'open'
+ - Redirects to /injury/[id] (the flag detail page)
+ - Shows in-app notification for coach on their next login
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FLAG DETAIL PAGE — /injury/:id
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Seen by athlete, parent and coach (different content per role).
+
+FLAG HEADER CARD:
+ Left border: severity colour (amber / orange / red)
+ Background: #FFF5F5 (very light red tint)
+
+ Row 1: Body area + side  |  Severity badge  |  Status badge
+ Row 2: Concern type pill
+ Row 3: "Logged by [name] on [date]"  Space Mono grey
+
+ Status badges:
+   OPEN:            red    background #FF4936
+   COACH REVIEWED:  blue   background #0B7DF1
+   MONITORING:      amber  background #F5B809
+   CLEARED:         green  background #10AC6E
+   REFERRED:        purple background #7C3AED
+
+DETAIL SECTION:
+ When occurred: [text]
+ Description:   [full text — no truncation]
+ Affects training: Yes / No
+
+COACH RESPONSE SECTION (below detail):
+
+ If status = 'open' and role = 'coach':
+   Show response form (see Coach Response section below)
+
+ If coach has responded (any role):
+   Show response card:
+     Header: "COACH RESPONSE"  Space Mono blue
+     Subheader: "Responded [date]"
+     Action taken: [action pill — see types below]
+     Response text: [coach's written response]
+     Training modification: [text if present]
+     Return to full training: [text if present]
+     Follow-up required: Yes / No + date if yes
+
+TIMELINE (bottom of page):
+ Chronological list of all activity:
+   [date]  Flag logged by [name]
+   [date]  Coach reviewed
+   [date]  Status updated to [status]
+   [date]  Resolved
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH RESPONSE FORM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Shown to coach only, on /injury/:id when status = 'open'.
+
+Header: "RESPOND TO FLAG"  Barlow Condensed blue
+Subheader: "Your response is visible to the athlete and parent."
+
+COURSE OF ACTION (required):
+ Label: "COURSE OF ACTION"  Space Mono uppercase
+ Six pill options (single select):
+
+   CONTINUE — MODIFIED
+     "Athlete continues training with modifications"
+
+   REST
+     "Athlete should rest this area completely"
+
+   REDUCE LOAD
+     "Reduce training volume or intensity"
+
+   PHYSIO REFERRAL
+     "Refer to physiotherapist or medical professional"
+
+   MONITOR
+     "Continue training — monitor closely"
+
+   CLEARED TO TRAIN
+     "No concern — cleared for full training"
+
+ Selected pill: blue (#0B7DF1) background, white text
+
+RESPONSE TEXT (required):
+ GuidedField:
+   label: "YOUR ASSESSMENT AND ADVICE"
+   hint: "Be specific. The athlete and parent will read this."
+   placeholder: "e.g. This sounds like IT band tightness —
+                 common with increased training load.
+                 Continue with court sessions but remove lateral
+                 agility drills for this week. Add the hip
+                 strengthening protocol from Appendix C.
+                 If it does not improve by Thursday, we will
+                 refer to the physio."
+
+TRAINING MODIFICATION (shows if action = 'continue_modified'
+                       or 'reduce_load'):
+ GuidedField:
+   label: "WHAT SPECIFICALLY SHOULD BE MODIFIED?"
+   hint: "Name the sessions, drills or movements to avoid"
+   placeholder: "e.g. Avoid lateral change of direction drills.
+                 Court sessions — straight-line work only.
+                 S&C: remove squats and lunges this week.
+                 Keep upper body and conditioning work."
+
+RETURN TO FULL TRAINING:
+ GuidedField:
+   label: "EXPECTED RETURN TO FULL TRAINING"
+   hint: "Give a timeframe or condition — not a guarantee"
+   placeholder: "e.g. Reassess Thursday session.
+                 Full return expected next week if improving."
+
+FOLLOW-UP:
+ Label: "IS FOLLOW-UP REQUIRED?"
+ Two pills: YES  NO
+ If YES — text field: "FOLLOW-UP DATE OR CONDITION"
+   placeholder: "e.g. Check in Thursday before session"
+
+UPDATE STATUS:
+ Label: "UPDATE FLAG STATUS TO"
+ Four pills:
+   MONITORING    REFERRED    CLEARED    KEEP OPEN
+
+"SEND RESPONSE" button
+ Full width, #0B7DF1 blue, white text
+ Barlow Condensed uppercase
+
+On submit:
+ - Saves coach_response, coach_action, training_modification,
+   return_to_full_training to injury_flags row
+ - Updates status field
+ - Sets coach_responded_at = now()
+ - Shows "Response sent ✓" confirmation
+ - Athlete and parent see response immediately on next view
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INJURY FLAG LIST — /injury
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Route: /injury
+Shows all flags for the current athlete.
+
+Filter tabs (top):
+ ALL   OPEN   MONITORING   RESOLVED
+
+Each flag shown as a card:
+ Left border: severity colour
+ Body area + side (bold)
+ Concern type pill + severity badge
+ Status badge (right)
+ Date logged
+ Coach response preview (if responded) — first 60 chars italic
+
+Tap card → /injury/:id
+
+"+ LOG NEW CONCERN" button
+ Top right, red (#FF4936) border, red text
+ → /injury/new
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NAVIGATION — WHERE TO ACCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ATHLETE bottom nav — TRAINING menu (already exists):
+ Add: "Injury / Concern Log  →" at top of the menu
+ Always first item, red text (#FF4936)
+
+ATHLETE daily reflection modal:
+ Physical status field — below the textarea add:
+ Small link: "Flag this to your coach →"
+ Tapping pre-fills /injury/new with session context
+ (week number, day, session type from the current modal)
+
+COACH dashboard — Athlete Reviews section:
+ Add "INJURY FLAGS" as a fourth card alongside the existing three
+ Shows count of open flags with red badge if any open:
+   "2 OPEN FLAGS" in red
+   "No open flags" in green if all clear
+ Tap → /injury (coach sees linked athlete's flags)
+
+PARENT dashboard:
+ Add "FLAG A CONCERN" button below the weekly observation section
+ Red border, red text → /injury/new
+ Parent's flags are logged with logged_by = 'parent'
+ Parent sees all flags (their own + athlete-logged) at /injury
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH NOTIFICATION BANNER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When coach logs in or navigates to /dashboard/coach:
+If there are open (unresponded) injury flags for their athlete:
+
+Show a banner below the top nav:
+ Background: #FFF5F5
+ Left border: 4px solid #FF4936
+ Text: "⚠ [N] injury flag(s) require your response"
+ Link: "Review now →" → /injury
+
+Banner CSS:
+ .injury-banner {
+   background: #FFF5F5;
+   border-left: 4px solid #FF4936;
+   padding: 12px 20px;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   font-family: 'Space Mono', monospace;
+   font-size: 11px;
+   letter-spacing: .08em;
+   color: #FF4936;
+ }
+ .injury-banner-link {
+   font-weight: 700;
+   text-decoration: underline;
+   cursor: pointer;
+ }
+
+Dismiss button (×) on the right — hides for this session only.
+Banner reappears on next login if flags still open.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEVERITY INDICATOR IN DAILY REFLECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In the daily reflection modal, after the physical status field:
+
+If the athlete has an open injury flag for today's session area:
+Show a small status card:
+
+ .open-flag-indicator {
+   background: #FFF5F5;
+   border: 1px solid #FF4936;
+   border-radius: 6px;
+   padding: 10px 14px;
+   margin-top: 8px;
+   font-size: 12px;
+   color: #FF4936;
+   font-family: 'Inter', sans-serif;
+ }
+
+Content:
+ "Open flag: [body area] — [status]"
+ "Coach response: [first 60 chars of response]"
+ "View flag →" link
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESS SCREEN UPDATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add to /progress under the session log stats:
+
+ "PHYSICAL STATUS"
+ Open flags: [N]  (red if > 0, green if 0)
+ Resolved flags: [N]
+ Avg severity of all logged flags: [X]/5
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ - Red (#FF4936) is the signal colour throughout this feature
+   It already means "Performance Expression / competition" in
+   the phase system — in injury context it means urgency.
+   Use sparingly and consistently.
+ - Severity 1–2 flags: amber — low visual weight
+ - Severity 3 flags: orange — medium visual weight
+ - Severity 4–5 flags: red — maximum visual weight
+ - Cleared flags: green — resolved, no concern
+ - Space Mono for all labels, badges and status text
+ - Barlow Condensed for page and section headers
+ - Inter for all body text, descriptions and responses
+ - No motivational language
+ - Medical disclaimer always visible on the entry form
+ - Mobile-first — all inputs and buttons minimum 44px touch target
+ - Auto-save on all text fields (1500ms debounce)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ - Any existing athlete, coach or parent functionality
+ - Weekly or daily reflection content and logic
+ - Phase 0 modules
+ - Competition review
+ - Monthly check-ins or capstone
+ - Weekly schedule or cycle planner
+ - All existing database tables and RLS policies
+ - Design tokens, colours and fonts (outside this feature)
+ - Auto-save behaviour on existing forms
+ - Bottom navigation structure
+ - Progress tracker widget

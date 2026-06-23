@@ -72,6 +72,7 @@ function BottomNav({ phaseColour, currentWeek, capstoneUnlocked }: BottomNavProp
   }
 
   const TRAINING_ITEMS = [
+    { label: 'Injury / Concern Log', path: '/injury', colour: '#FF4936' },
     { label: 'Appendix A: Warm-Up',   path: '/appendix/warmup' },
     { label: 'Appendix B: Gym S&C',   path: '/appendix/gym' },
     { label: 'Appendix C: Body Mgmt', path: '/appendix/body' },
@@ -106,23 +107,23 @@ function BottomNav({ phaseColour, currentWeek, capstoneUnlocked }: BottomNavProp
       {openMenu && menuItems && (
         <div style={{ position: 'fixed', bottom: 64, left: 0, right: 0, zIndex: 1001, padding: '0 12px 6px' }}>
           <div style={{ background: '#1E293B', borderRadius: 12, overflow: 'hidden', boxShadow: '0 -4px 32px rgba(0,0,0,.5)' }}>
-            {(menuItems as Array<{ label: string; path: string; disabled?: boolean }>).map((item, i) => (
+            {(menuItems as Array<{ label: string; path: string; disabled?: boolean; colour?: string }>).map((item, i) => (
               <button
                 key={item.path}
                 onClick={() => {
-                  if (!(item as any).disabled) { navigate(item.path); setOpenMenu(null); }
+                  if (!item.disabled) { navigate(item.path); setOpenMenu(null); }
                 }}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   width: '100%', padding: '14px 18px', background: 'transparent', border: 'none',
                   borderBottom: i < menuItems.length - 1 ? '1px solid rgba(255,255,255,.07)' : 'none',
                   fontFamily: 'var(--font-m)', fontSize: 12, letterSpacing: '.07em', textTransform: 'uppercase',
-                  color: (item as any).disabled ? 'rgba(255,255,255,.2)' : '#fff',
-                  cursor: (item as any).disabled ? 'default' : 'pointer', textAlign: 'left', minHeight: 48,
+                  color: item.disabled ? 'rgba(255,255,255,.2)' : (item.colour ?? '#fff'),
+                  cursor: item.disabled ? 'default' : 'pointer', textAlign: 'left', minHeight: 48,
                 }}
               >
                 {item.label}
-                {!(item as any).disabled && <span style={{ color: menuColour, fontSize: 16 }}>→</span>}
+                {!item.disabled && <span style={{ color: item.colour ?? menuColour, fontSize: 16 }}>→</span>}
               </button>
             ))}
           </div>
