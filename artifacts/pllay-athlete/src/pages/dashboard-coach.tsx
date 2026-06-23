@@ -60,15 +60,11 @@ export default function CoachDashboard() {
   }, [error, navigate]);
 
   const [bannerDismissed, setBannerDismissed] = useState(false);
-
-  if (isLoading) return <Spinner />;
-  if (!data) return null;
-
-  const { coach, linkedAthlete, schedule, reflections, competitionReviews, phase0Modules } = data;
-  const phaseColour = linkedAthlete ? (PHASE_COLORS[linkedAthlete.phase] ?? BLUE) : BLUE;
-  const currentWeek = linkedAthlete?.currentWeek ?? 1;
-  const completedReflections = reflections.filter(r => r.completedAt);
   const [reviewTab, setReviewTab] = useState<'weekly' | 'daily'>('weekly');
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
+
+  const linkedAthleteId = data?.linkedAthlete?.id ?? null;
+  const currentWeekForQuery = data?.linkedAthlete?.currentWeek ?? 1;
 
   interface DailyLog {
     id: number; dayOfWeek: string; sessionType?: string | null;
@@ -77,18 +73,25 @@ export default function CoachDashboard() {
     sessionRating?: number | null; energyRating?: number | null;
   }
   const { data: dailyLogs = [] } = useQuery<DailyLog[]>({
-    queryKey: ['coach-daily-logs', currentWeek],
-    queryFn: () => apiFetch('/coach/daily-logs?weekNumber=' + currentWeek),
-    enabled: !!linkedAthlete,
+    queryKey: ['coach-daily-logs', currentWeekForQuery],
+    queryFn: () => apiFetch('/coach/daily-logs?weekNumber=' + currentWeekForQuery),
+    enabled: !!linkedAthleteId,
   });
-  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
 
   interface InjuryFlagSummary { id: number; status: string; bodyArea: string; severity: number }
   const { data: injuryFlags = [] } = useQuery<InjuryFlagSummary[]>({
     queryKey: ['coach-injury-flags'],
     queryFn: () => apiFetch('/injury'),
-    enabled: !!linkedAthlete,
+    enabled: !!linkedAthleteId,
   });
+
+  if (isLoading) return <Spinner />;
+  if (!data) return null;
+
+  const { coach, linkedAthlete, schedule, reflections, competitionReviews, phase0Modules } = data;
+  const phaseColour = linkedAthlete ? (PHASE_COLORS[linkedAthlete.phase] ?? BLUE) : BLUE;
+  const currentWeek = linkedAthlete?.currentWeek ?? 1;
+  const completedReflections = reflections.filter(r => r.completedAt);
   const openFlagCount = injuryFlags.filter(f => f.status === 'open').length;
 
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];

@@ -1,0 +1,194 @@
+Fix a React hooks error that occurs when registering as a coach.
+
+The error is:
+"Rendered more hooks than during the previous render"
+
+This appears on the /register/coach page when the registration
+form is submitted or when conditional fields appear/disappear.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT CAUSES THIS ERROR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+React requires that hooks (useState, useEffect, useCallback etc)
+are always called in the same order on every render.
+
+The error means somewhere in the coach registration component
+(and possibly parent registration too) a hook is being called
+inside a conditional block, like:
+
+  // WRONG — hook inside a condition
+  if (someCondition) {
+    const [value, setValue] = useState('')  // ← breaks React rules
+  }
+
+Or a hook is called after an early return:
+
+  // WRONG — hook after early return
+  if (!data) return <Loading />
+  const [value, setValue] = useState('')  // ← never reached on first render
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE FIX — RULES TO APPLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open every file related to registration and auth.
+Apply these fixes:
+
+RULE 1 — Move ALL hooks to the top of the component.
+All useState, useEffect, useCallback, useMemo calls must be
+the very first thing in the component function body.
+No exceptions. Before any conditionals, before any early returns.
+
+RULE 2 — Remove all early returns that appear before hooks.
+If you need to show a loading state or redirect, do it with
+conditional rendering in the JSX return — not with an early return
+before the hooks.
+
+WRONG:
+  function CoachRegister() {
+    if (loading) return <Spinner />  // early return BEFORE hooks
+    const [name, setName] = useState('')  // hook AFTER early return
+  }
+
+CORRECT:
+  function CoachRegister() {
+    const [name, setName] = useState('')  // hook FIRST
+    const [loading, setLoading] = useState(false)
+    if (loading) return <Spinner />  // early return AFTER all hooks
+  }
+
+RULE 3 — Do not call hooks inside conditionals.
+
+WRONG:
+  if (role === 'coach') {
+    const [club, setClub] = useState('')
+  }
+
+CORRECT:
+  const [club, setClub] = useState('')
+  // then conditionally RENDER the field, not conditionally DECLARE the hook
+
+RULE 4 — Do not call hooks inside loops or nested functions.
+All hooks at the top level of the component only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILES TO CHECK AND FIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check and fix ALL of these files:
+
+  1. CoachRegister.tsx (or .jsx) — primary source of the error
+  2. ParentRegister.tsx — likely has the same pattern
+  3. AthleteRegister.tsx — check even if not broken
+  4. Login.tsx — check for the same issue
+  5. Any shared AuthForm, RoleSelector or RegisterForm component
+
+For each file:
+  - Find every hook call
+  - Move it to the very top of the component
+  - Remove any hook calls inside if/else blocks
+  - Remove any hook calls after early returns
+  - Convert early returns to conditional JSX instead
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SPECIFIC FIX FOR COACH REGISTRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The coach registration form has a conditional section:
+"LINK TO ATHLETE" — shows an athlete email field.
+
+This conditional section likely triggered the hooks error because
+a useState or useEffect for that field was declared conditionally.
+
+Correct structure for CoachRegister:
+
+  function CoachRegister() {
+    // ALL state at top — unconditional
+    const [name, setName] = useState('')
+    const [club, setClub] = useState('')
+    const [specialisation, setSpecialisation] = useState('')
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [athleteEmail, setAthleteEmail] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [athleteNotFound, setAthleteNotFound] = useState(false)
+    const [success, setSuccess] = useState(false)
+    const navigate = useNavigate()
+
+    // ALL effects after state — unconditional
+    useEffect(() => {
+      // any setup
+    }, [])
+
+    // Handler functions
+    const handleSubmit = async () => { ... }
+
+    // Conditional early return AFTER all hooks
+    if (loading) return <LoadingSpinner />
+    if (success) return <SuccessScreen />
+
+    // Main render — conditionals only in JSX
+    return (
+      <div>
+        <input value={name} onChange={e => setName(e.target.value)} />
+        <input value={club} onChange={e => setClub(e.target.value)} />
+        ...
+        {/* Conditional rendering of fields — NOT conditional hooks */}
+        <input value={athleteEmail}
+               onChange={e => setAthleteEmail(e.target.value)} />
+        {athleteNotFound && (
+          <p>Athlete account not found.</p>
+        )}
+      </div>
+    )
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALSO CHECK — ROLE SELECTOR COMPONENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If there is a shared RoleSelector component that conditionally
+renders different registration forms based on the selected role,
+check that it does not remount components when switching roles.
+
+If switching from Athlete to Coach causes a full component remount
+(destroying and recreating the component), this can also cause
+the hooks count mismatch error.
+
+Fix: use a stable parent component that always renders all three
+forms but shows/hides them with CSS display:none — do not
+conditionally mount/unmount the form components based on role.
+
+OR use React.memo and stable keys to prevent unnecessary remounts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER FIXING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test all three registration paths in order:
+
+  1. Go to /login
+  2. Select ATHLETE → go through registration → confirm no error
+  3. Go to /login
+  4. Select COACH → go through registration → confirm no error
+  5. Go to /login
+  6. Select PARENT → go through registration → confirm no error
+
+For each: fill in all fields including the athlete email link field.
+Submit the form. Confirm:
+  - No "Rendered more hooks" error
+  - No blank white screen
+  - No console errors
+  - Redirects to the correct dashboard on success
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Registration form field content or labels
+  - Supabase auth logic and database inserts
+  - Design, colours, fonts or layout
+  - Any other pages or components not listed above
+  - Existing athlete functionality
