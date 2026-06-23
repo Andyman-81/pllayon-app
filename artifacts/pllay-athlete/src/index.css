@@ -683,3 +683,89 @@ body {
     letter-spacing: -.01em;
   }
 }
+
+/* ─── Profile Menu ─── */
+.profile-menu {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  width: 260px;
+  background: #1E293B;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  z-index: 2000;
+  overflow: hidden;
+}
+.profile-menu-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.profile-menu-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+.profile-menu-email {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,.35);
+  margin-top: 4px;
+  word-break: break-all;
+}
+.profile-menu-section {
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.profile-menu-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  margin-bottom: 10px;
+}
+.role-pills {
+  display: flex;
+  gap: 8px;
+}
+.role-pill-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,.15);
+  background: transparent;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.45);
+  cursor: pointer;
+  transition: all .15s;
+}
+.role-pill-btn:hover {
+  border-color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,.7);
+}
+.logout-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #FF4936;
+  cursor: pointer;
+  transition: background .15s;
+}
+.logout-btn:hover {
+  background: rgba(255,73,54,.08);
+}

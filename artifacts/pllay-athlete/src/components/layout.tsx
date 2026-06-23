@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useGetAthleteProfile, useGetProgress } from '@workspace/api-client-react';
 import { PHASE_COLORS, PHASE_LABELS } from '@/lib/constants';
 import { getRole } from '@/lib/useRole';
+import { ProfileMenu } from '@/components/ProfileMenu';
 
 const ROLE_COLOURS: Record<string, string> = {
   athlete: '#10AC6E',
@@ -44,9 +45,7 @@ function Navbar({ phaseColour, currentSection, athleteName, onHome }: NavbarProp
         )}
       </div>
 
-      <div style={{ padding: '3px 10px', borderRadius: 100, border: `1.5px solid ${roleColour}`, background: `${roleColour}20`, fontFamily: 'var(--font-m)', fontSize: 8, letterSpacing: '.12em', textTransform: 'uppercase', color: roleColour, fontWeight: 700, flexShrink: 0 }}>
-        {role}
-      </div>
+      <ProfileMenu roleColour={roleColour} />
     </nav>
   );
 }

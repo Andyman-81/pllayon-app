@@ -1,7 +1,7 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuth } from '@workspace/replit-auth-web';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import Dashboard from '@/pages/dashboard';
 import Onboarding from '@/pages/onboarding';
@@ -21,7 +21,6 @@ import RegisterParent from '@/pages/register-parent';
 import CoachDashboard from '@/pages/dashboard-coach';
 import ParentDashboard from '@/pages/dashboard-parent';
 import CoachReview from '@/pages/coach-review';
-import { useState } from 'react';
 import { getRole, saveRole, type Role } from '@/lib/useRole';
 
 const queryClient = new QueryClient({
@@ -31,12 +30,13 @@ const queryClient = new QueryClient({
 const ROLES: { value: Role; label: string; colour: string }[] = [
   { value: 'athlete', label: 'Athlete', colour: '#10AC6E' },
   { value: 'coach',   label: 'Coach',   colour: '#0B7DF1' },
-  { value: 'parent',  label: 'Parent',  colour: '#F5B809' },
+  { value: 'parent',  label: 'Parent',  colour: '#D97706' },
 ];
 
 function LoginScreen() {
   const { login } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role>(getRole());
+  const [, navigate] = useLocation();
 
   function handleLogin() {
     saveRole(selectedRole);
@@ -58,6 +58,7 @@ function LoginScreen() {
           Development<br />Program
         </h1>
 
+        {/* Role selector — always visible */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
             I am accessing as
@@ -92,6 +93,16 @@ function LoginScreen() {
         >
           Access Portal
         </button>
+
+        <div style={{ marginTop: 20, fontFamily: 'var(--font-b)', fontSize: 13, color: 'rgba(255,255,255,.4)' }}>
+          Don't have an account?{' '}
+          <button
+            onClick={() => navigate(`/register/${selectedRole}`)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: activeColour, fontFamily: 'var(--font-b)', fontSize: 13, padding: 0, textDecoration: 'underline' }}
+          >
+            Register →
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -132,19 +143,24 @@ function Router() {
       {/* Root — role-aware */}
       <Route path="/" component={() => <ProtectedRoute component={SmartRoot} />} />
 
-      {/* Athlete routes (unchanged) */}
-      <Route path="/onboarding"                   component={() => <ProtectedRoute component={Onboarding} />} />
-      <Route path="/phase0"                       component={() => <ProtectedRoute component={Phase0} />} />
-      <Route path="/week/:weekNumber"             component={() => <ProtectedRoute component={WeeklyReflection} />} />
-      <Route path="/month/:monthNumber/checkin"   component={() => <ProtectedRoute component={MonthlyCheckin} />} />
-      <Route path="/capstone"                     component={() => <ProtectedRoute component={Capstone} />} />
-      <Route path="/progress"                     component={() => <ProtectedRoute component={Progress} />} />
-      <Route path="/competition-review"           component={() => <ProtectedRoute component={CompetitionReview} />} />
-      <Route path="/competition-review/:id"       component={() => <ProtectedRoute component={CompetitionReview} />} />
-      <Route path="/appendix/:id"                 component={() => <ProtectedRoute component={Appendix} />} />
-      <Route path="/pre-comp"                     component={() => <ProtectedRoute component={PreComp} />} />
-      <Route path="/schedule/week/:weekNum"       component={() => <ProtectedRoute component={SchedulePage} />} />
-      <Route path="/cycle-planner"                component={() => <ProtectedRoute component={CyclePlannerPage} />} />
+      {/* Explicit login */}
+      <Route path="/login" component={LoginScreen} />
+
+      {/* Athlete routes */}
+      <Route path="/dashboard/athlete"              component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/register/athlete"               component={() => <ProtectedRoute component={Onboarding} />} />
+      <Route path="/onboarding"                     component={() => <ProtectedRoute component={Onboarding} />} />
+      <Route path="/phase0"                         component={() => <ProtectedRoute component={Phase0} />} />
+      <Route path="/week/:weekNumber"               component={() => <ProtectedRoute component={WeeklyReflection} />} />
+      <Route path="/month/:monthNumber/checkin"     component={() => <ProtectedRoute component={MonthlyCheckin} />} />
+      <Route path="/capstone"                       component={() => <ProtectedRoute component={Capstone} />} />
+      <Route path="/progress"                       component={() => <ProtectedRoute component={Progress} />} />
+      <Route path="/competition-review"             component={() => <ProtectedRoute component={CompetitionReview} />} />
+      <Route path="/competition-review/:id"         component={() => <ProtectedRoute component={CompetitionReview} />} />
+      <Route path="/appendix/:id"                   component={() => <ProtectedRoute component={Appendix} />} />
+      <Route path="/pre-comp"                       component={() => <ProtectedRoute component={PreComp} />} />
+      <Route path="/schedule/week/:weekNum"         component={() => <ProtectedRoute component={SchedulePage} />} />
+      <Route path="/cycle-planner"                  component={() => <ProtectedRoute component={CyclePlannerPage} />} />
 
       {/* Coach routes */}
       <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach} />} />

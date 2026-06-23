@@ -60,8 +60,16 @@ export default function RegisterParent() {
   return (
     <div style={{ minHeight: '100dvh', background: '#111111', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
       <div style={{ width: '100%', maxWidth: 460 }}>
-        <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 17, color: '#10AC6E', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 28 }}>
-          PLLAY ON
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 17, color: '#10AC6E', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+            PLLAY ON
+          </div>
+          <button
+            onClick={() => navigate('/login')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-m)', fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.1em', textTransform: 'uppercase', padding: 0 }}
+          >
+            ← Back
+          </button>
         </div>
         <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: AMBER, marginBottom: 8 }}>
           PARENT REGISTRATION
@@ -102,6 +110,17 @@ export default function RegisterParent() {
           <button type="submit" disabled={loading} style={{ width: '100%', minHeight: 52, background: AMBER, color: '#fff', border: 'none', borderRadius: 4, fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 22, textTransform: 'uppercase', letterSpacing: '.06em', cursor: loading ? 'default' : 'pointer', opacity: loading ? .6 : 1, marginTop: 10 }}>
             {loading ? 'Registering…' : 'Register as Parent'}
           </button>
+
+          <div style={{ marginTop: 20, textAlign: 'center', fontFamily: 'var(--font-b)', fontSize: 13, color: 'rgba(255,255,255,.4)' }}>
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: AMBER, fontFamily: 'var(--font-b)', fontSize: 13, padding: 0, textDecoration: 'underline' }}
+            >
+              Log in →
+            </button>
+          </div>
         </form>
       </div>
     </div>

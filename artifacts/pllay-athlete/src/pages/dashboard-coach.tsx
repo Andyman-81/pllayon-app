@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { PHASE_COLORS, PHASE_LABELS, WEEKS } from "@/lib/constants";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 const BLUE = '#0B7DF1';
 
@@ -78,9 +79,7 @@ export default function CoachDashboard() {
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, color: 'rgba(255,255,255,.55)', letterSpacing: '.1em', textTransform: 'uppercase' }}>{coach.name}</div>
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 8, color: BLUE, letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>COACH VIEW</div>
         </div>
-        <div style={{ padding: '3px 10px', borderRadius: 100, border: `1.5px solid ${BLUE}`, background: `${BLUE}20`, fontFamily: 'var(--font-m)', fontSize: 8, letterSpacing: '.12em', textTransform: 'uppercase', color: BLUE, fontWeight: 700 }}>
-          COACH
-        </div>
+        <ProfileMenu roleColour={BLUE} />
       </nav>
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px 0' }}>

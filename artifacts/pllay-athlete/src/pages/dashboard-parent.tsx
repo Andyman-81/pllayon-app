@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { PHASE_COLORS, PHASE_LABELS } from "@/lib/constants";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 const AMBER = '#D97706';
 
@@ -101,9 +102,7 @@ export default function ParentDashboard() {
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, color: 'rgba(255,255,255,.55)', letterSpacing: '.1em', textTransform: 'uppercase' }}>{parent.name}</div>
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 8, color: AMBER, letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700 }}>PARENT VIEW</div>
         </div>
-        <div style={{ padding: '3px 10px', borderRadius: 100, border: `1.5px solid ${AMBER}`, background: `${AMBER}20`, fontFamily: 'var(--font-m)', fontSize: 8, letterSpacing: '.12em', textTransform: 'uppercase', color: AMBER, fontWeight: 700 }}>
-          PARENT
-        </div>
+        <ProfileMenu roleColour={AMBER} />
       </nav>
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px 0' }}>

@@ -1,0 +1,222 @@
+Fix navigation and role switching in the Pllay On app.
+There are two problems to solve.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEM 1 — NO WAY TO SWITCH ROLE OR LOG OUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Once logged in there is no way to:
+  - Log out
+  - Switch between roles (athlete / coach / parent)
+  - Return to the login/role selection screen
+
+Fix: Add a profile menu to every dashboard.
+
+PROFILE BUTTON
+Add a profile/avatar button to the TOP RIGHT of the top nav bar
+on all three dashboards (athlete, coach, parent).
+
+Appearance:
+  Circle avatar — initials of the logged-in user's name
+  Background: current role colour
+    Athlete: #10AC6E
+    Coach:   #0B7DF1
+    Parent:  #D97706
+  Size: 36×36px
+  Font: Barlow Condensed, white, 14px, uppercase
+
+Tapping the avatar opens a slide-down menu:
+
+  ┌─────────────────────────────┐
+  │  [Name]                     │
+  │  [Role badge]               │
+  │  [Email]                    │
+  ├─────────────────────────────┤
+  │  Switch Role                │
+  │  (shows 3 role pill buttons)│
+  │  ATHLETE  COACH  PARENT     │
+  ├─────────────────────────────┤
+  │  Log Out                    │
+  └─────────────────────────────┘
+
+SWITCH ROLE behaviour:
+  - Updates localStorage po_role to new selection
+  - If user has an account for that role → redirects to that dashboard
+  - If user does NOT have an account for that role → redirects to
+    that role's registration page (/register/coach etc)
+  - Does NOT log out of Supabase auth — just changes the role view
+
+LOG OUT behaviour:
+  - Calls supabase.auth.signOut()
+  - Clears localStorage (po_role and any cached data)
+  - Redirects to /login
+  - Role selector is shown fresh on next login
+
+CSS for the menu:
+  .profile-menu {
+    position: absolute;
+    top: 56px;
+    right: 16px;
+    width: 260px;
+    background: #1E293B;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    z-index: 2000;
+    overflow: hidden;
+  }
+  .profile-menu-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .profile-menu-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #fff;
+    text-transform: uppercase;
+  }
+  .profile-menu-email {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,.35);
+    margin-top: 2px;
+  }
+  .profile-menu-section {
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .profile-menu-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.35);
+    margin-bottom: 10px;
+  }
+  .role-pills {
+    display: flex;
+    gap: 8px;
+  }
+  .role-pill-btn {
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: 100px;
+    border: 1.5px solid rgba(255,255,255,.15);
+    background: transparent;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.45);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .role-pill-btn.active {
+    border-color: currentRoleColour;
+    color: currentRoleColour;
+    background: rgba(currentRoleColour, .1);
+  }
+  .logout-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #FF4936;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .logout-btn:hover {
+    background: rgba(255,73,54,.08);
+  }
+
+Close the menu when tapping anywhere outside it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEM 2 — COACH AND PARENT DASHBOARDS
+NOT ACCESSIBLE / NOT TESTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Verify that these routes all exist and load without errors:
+
+  /register/athlete    — athlete registration form
+  /register/coach      — coach registration form
+  /register/parent     — parent registration form
+  /login               — login with role selector
+  /dashboard/athlete   — athlete dashboard (existing)
+  /dashboard/coach     — coach dashboard
+  /dashboard/parent    — parent dashboard
+  /coach-review        — coach review module
+
+For each route: if it does not exist or throws an error, build it
+using the specifications already provided in previous prompts.
+
+Test each route manually and confirm it loads.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEM 3 — LOGIN PAGE NEEDS A BACK BUTTON
+AND ROLE SELECTOR ALWAYS VISIBLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Update /login to:
+
+1. Always show the role selector at the top of the form
+   (not hidden after first selection — always visible)
+
+2. Show which role is currently selected with active pill styling
+
+3. Add a "← Back to role selection" link on the registration
+   forms (/register/coach, /register/athlete, /register/parent)
+   that returns to /login
+
+4. On the login form itself show:
+   "Don't have an account? Register →"
+   Link goes to /register/[current selected role]
+   e.g. if COACH is selected: /register/coach
+
+5. On all registration forms show:
+   "Already have an account? Log in →"
+   Link goes to /login
+
+6. The login page must be accessible from anywhere in the app
+   via the Log Out option in the profile menu (already specified above)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUICK TEST CHECKLIST — VERIFY THESE WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After building, confirm each of these manually:
+
+  □ Visit /login → role selector shows (Athlete / Coach / Parent)
+  □ Select Coach → register form shows coach fields
+  □ Select Parent → register form shows parent fields
+  □ Select Athlete → register form shows athlete fields
+  □ Log in as athlete → /dashboard/athlete loads
+  □ Profile avatar visible top right on athlete dashboard
+  □ Tap avatar → menu shows with Switch Role and Log Out
+  □ Switch to Coach → goes to /dashboard/coach or /register/coach
+  □ Log out → returns to /login, localStorage cleared
+  □ Log back in as coach → /dashboard/coach loads
+  □ Coach dashboard shows linked athlete data
+  □ /coach-review loads for coach role
+  □ Parent dashboard shows correct week question
+  □ Parent can add weekly observation and save it
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Any existing athlete functionality
+  - Weekly reflections, phase 0 modules, competition review
+  - Appendix pages
+  - Bottom navigation structure
+  - Design tokens, colours, fonts
+  - Auto-save behaviour
+  - All existing database tables and RLS policies
