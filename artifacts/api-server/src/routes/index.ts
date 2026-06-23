@@ -13,6 +13,7 @@ import scheduleRouter from "./schedule";
 import cycleRouter from "./cycle";
 import coachRouter from "./coach";
 import parentRouter from "./parent";
+import dailyReflectionRouter from "./daily-reflection";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(scheduleRouter);
 router.use(cycleRouter);
 router.use(coachRouter);
 router.use(parentRouter);
+router.use(dailyReflectionRouter);
 
 export default router;

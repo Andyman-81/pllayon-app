@@ -1,10 +1,25 @@
 import { useGetProgress } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Layout, PageHeader } from "@/components/layout";
 import { PHASE_COLORS } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { apiFetch } from "@/lib/api";
+
+interface DailyStats {
+  currentWeek: number;
+  sessionStreak: number;
+  sessionsThisWeek: number;
+  currentWeekDays: Array<{ day: string; logged: boolean }>;
+  avgSessionRating: number | null;
+  physicalFlagCount: number;
+}
 
 export default function Progress() {
   const { data: progress, isLoading } = useGetProgress();
+  const { data: dailyStats } = useQuery<DailyStats>({
+    queryKey: ['daily-reflection-stats'],
+    queryFn: () => apiFetch('/daily-reflection/stats'),
+  });
 
   if (isLoading || !progress) {
     return (
@@ -85,6 +100,60 @@ export default function Progress() {
             ))}
           </div>
         </div>
+
+        {/* ── Daily Session Stats ── */}
+        <div>
+          <h3 className="font-heading text-xl uppercase mb-4" style={{ color: phaseColor }}>Session Log Stats</h3>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-card border p-4 rounded-xl text-center">
+              <div className="font-mono text-xs text-muted-foreground mb-1">LOG STREAK</div>
+              <div className="font-heading text-4xl" style={{ color: phaseColor }}>
+                {dailyStats?.sessionStreak ?? 0}
+                <span className="text-xl text-muted-foreground"> days</span>
+              </div>
+            </div>
+            <div className="bg-card border p-4 rounded-xl text-center">
+              <div className="font-mono text-xs text-muted-foreground mb-1">AVG RATING</div>
+              <div className="font-heading text-4xl" style={{ color: phaseColor }}>
+                {dailyStats?.avgSessionRating != null ? dailyStats.avgSessionRating.toFixed(1) : '—'}
+                <span className="text-xl text-muted-foreground"> /5</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card border p-4 rounded-xl mb-4">
+            <div className="font-mono text-xs text-muted-foreground mb-3">
+              SESSIONS THIS WEEK — {dailyStats?.sessionsThisWeek ?? 0} of 7 days logged
+            </div>
+            <div className="flex gap-2">
+              {(dailyStats?.currentWeekDays ?? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => ({ day: d, logged: false }))).map((d: { day: string; logged: boolean }) => (
+                <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className="w-full rounded"
+                    style={{ height: 28, background: d.logged ? phaseColor : 'hsl(var(--muted))' }}
+                  />
+                  <span className="font-mono text-[9px] text-muted-foreground uppercase">{d.day.slice(0,3)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-card border p-4 rounded-xl">
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="font-mono text-xs text-muted-foreground mb-1">PHYSICAL FLAGS</div>
+                <div className="font-heading text-3xl" style={{ color: (dailyStats?.physicalFlagCount ?? 0) > 0 ? '#D97706' : phaseColor }}>
+                  {dailyStats?.physicalFlagCount ?? 0}
+                </div>
+              </div>
+              <div className="font-mono text-xs text-muted-foreground text-right max-w-[160px] leading-relaxed">
+                Flag your coach if this number is growing
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </Layout>
   );

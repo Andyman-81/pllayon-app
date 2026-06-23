@@ -1,0 +1,361 @@
+Add daily reflection capability to the weekly reflection system
+in the Pllay On Athlete Digital Workbook.
+
+Do not change any existing functionality.
+The weekly reflection remains mandatory and unchanged.
+The daily reflection is new and optional.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ARCHITECTURE — TWO REFLECTION TYPES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WEEKLY REFLECTION (existing — mandatory)
+  - One per week
+  - Unlocks each Sunday
+  - Must be completed before Week N+1 unlocks
+  - Contains: scorecard, 3 reflection fields, focus question,
+    implementation intention
+  - Completion marks the week as done
+  - Already built — do not change the content or logic
+
+DAILY REFLECTION (new — optional)
+  - Available every day of the week
+  - Athlete can add one per day (Monday through Sunday)
+  - Takes 2 minutes maximum
+  - Focused on that specific training session
+  - Does NOT affect week completion status
+  - Does NOT unlock or lock anything
+  - Purely additive — more data for the athlete to review
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHERE THEY LIVE — WEEK PAGE LAYOUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Update /week/:weekNum to show two clear sections:
+
+SECTION 1 — WEEKLY REVIEW (existing content, unchanged)
+  Header strip:
+    Background: phase colour
+    Left: "WEEK [N] — WEEKLY REVIEW"  Barlow Condensed white
+    Right: "MANDATORY" badge
+           Style: white text, phase colour border, pill shape
+           Font: Space Mono 9px uppercase
+
+  All existing weekly reflection content sits here unchanged:
+    Mission box
+    Scorecard (5 dimensions, 1–5)
+    3 reflection fields
+    Focus question + answer
+    Implementation intention (WHEN/WHERE/HOW)
+    Mark as Complete button
+
+  Completion state: green ✓ "WEEK COMPLETE" banner
+  replaces the Mark as Complete button when done.
+
+SECTION 2 — DAILY REFLECTIONS (new)
+  Divider between sections:
+    1px line, grey (#E2E8F0)
+    Label centred on the line: "DAILY SESSION LOGS"
+    Font: Space Mono 10px uppercase grey (#94A3B8)
+
+  Header strip (below divider):
+    Background: #F8FAFC (near white — distinct from phase colour)
+    Left: "THIS WEEK'S SESSIONS"  Barlow Condensed #1E293B
+    Right: "OPTIONAL" badge
+           Style: grey (#94A3B8) text, grey border, pill shape
+
+  Day row list — 7 rows, one per day (Monday to Sunday):
+
+    Each day row shows:
+    ┌─────────────────────────────────────────────┐
+    │ MON  ·  No session logged     [+ LOG SESSION]│
+    └─────────────────────────────────────────────┘
+
+    If a session is logged for that day:
+    ┌─────────────────────────────────────────────┐
+    │ MON  ·  ✓ Logged  [preview text...]  [EDIT] │
+    └─────────────────────────────────────────────┘
+
+  Day row CSS:
+    .day-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .day-row:last-child { border-bottom: none; }
+    .day-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #1E293B;
+      min-width: 44px;
+    }
+    .day-status {
+      flex: 1;
+      font-size: 13px;
+      color: #94A3B8;
+      font-style: italic;
+      font-family: 'Inter', sans-serif;
+    }
+    .day-status.logged {
+      color: #1E293B;
+      font-style: normal;
+      font-weight: 500;
+    }
+    .day-log-btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 7px 14px;
+      border-radius: 100px;
+      border: 1.5px solid currentPhaseColour;
+      color: currentPhaseColour;
+      background: transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .day-log-btn:hover {
+      background: currentPhaseColour;
+      color: #fff;
+    }
+    .day-log-btn.logged {
+      border-color: #E2E8F0;
+      color: #94A3B8;
+    }
+
+  "LOG SESSION" taps open the Daily Reflection Modal (see below).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DAILY REFLECTION MODAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Opens as a bottom sheet modal (slides up from bottom).
+Same pattern as the Add Session modal in the weekly schedule.
+
+Modal header:
+  "[DAY] — SESSION LOG"  Barlow Condensed, phase colour
+  "Optional · Takes 2 minutes"  Space Mono 9px grey
+  × close button top right
+
+SESSION TYPE ROW (first field):
+  Label: "WHAT TYPE OF SESSION?"  Space Mono uppercase
+  Horizontally scrollable pill selector:
+    Tennis — Court    (green  #10AC6E)
+    Tennis — Match    (red    #FF4936)
+    S&C Session       (blue   #0B7DF1)
+    Speed & Agility   (yellow #F5B809)
+    Recovery          (cyan   #06B6D4)
+    School Sport      (dark   #1E293B)
+    Other             (grey   #64748B)
+  Selected pill: filled background, white text
+  Unselected: border only
+
+  This links to the weekly schedule — if the coach has scheduled
+  a session for this day, pre-select that session type automatically.
+  Athlete can change it if what actually happened was different.
+
+FIVE GUIDED FIELDS:
+
+Field 1:
+  label: "What did I work on today?"
+  hint: "Name the specific focus — not just the session type"
+  placeholder: "e.g. Serve + return patterns in the squad session.
+                Coach focused on my kick serve placement to the ad court."
+  db_field: session_focus
+  required: true (the only required field in the daily log)
+
+Field 2:
+  label: "What went well?"
+  hint: "One specific moment or quality — not 'everything was good'"
+  placeholder: "e.g. My backhand cross-court was clicking.
+                I held the pattern under pressure in the practice match."
+  db_field: went_well
+  required: false
+
+Field 3:
+  label: "What was challenging?"
+  hint: "What was genuinely hard? Be specific."
+  placeholder: "e.g. The last 20 minutes. I was flat and my
+                decision-making dropped. I know why — didn't eat enough."
+  db_field: challenging
+  required: false
+
+Field 4:
+  label: "One thing I noticed about my development today"
+  hint: "Not a result — an observation about how you are improving"
+  placeholder: "e.g. I stayed in the point longer before going for
+                the winner. Six weeks ago I would have gone early."
+  db_field: development_note
+  required: false
+
+Field 5:
+  label: "Physical status"
+  hint: "Any niggles, fatigue or anything to flag"
+  placeholder: "e.g. Left calf a bit tight after the sprint work.
+                Worth flagging at the next S&C session."
+  db_field: physical_status
+  required: false
+
+SESSION RATING (below the fields):
+  Label: "HOW WAS THE SESSION OVERALL?"  Space Mono uppercase
+  Five large tap-boxes (same .rb component, scale 1–5):
+    Below scale: "Poor" left, "Excellent" right
+  db_field: session_rating
+
+ENERGY RATING (below session rating):
+  Label: "MY ENERGY LEVEL TODAY"  Space Mono uppercase
+  Five tap-boxes (same component):
+    Below scale: "Very low" left, "Very high" right
+  db_field: energy_rating
+
+SAVE BUTTON:
+  "SAVE SESSION LOG"
+  Full width, phase colour background, white text
+  Barlow Condensed, uppercase
+  Only active when session_focus has content (the one required field)
+  On save: modal closes, day row updates to show logged state
+  Auto-saves as athlete types (1500ms debounce) — modal can be
+  closed and reopened with content preserved
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+create table daily_reflections (
+  id uuid primary key default gen_random_uuid(),
+  athlete_id uuid references athletes(id) on delete cascade,
+  week_number int not null check (week_number between 1 and 12),
+  day_of_week text not null,
+  session_type text,
+  session_focus text not null,
+  went_well text,
+  challenging text,
+  development_note text,
+  physical_status text,
+  session_rating int check (session_rating between 1 and 5),
+  energy_rating int check (energy_rating between 1 and 5),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(athlete_id, week_number, day_of_week)
+);
+
+alter table daily_reflections enable row level security;
+
+create policy "daily_own" on daily_reflections
+  using (auth.uid() = athlete_id);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WEEKLY REVIEW SUMMARY (pulls from daily logs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In the Weekly Review section (Section 1), above the scorecard,
+add a small read-only summary panel if any daily logs exist:
+
+  .daily-summary {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .daily-summary-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #94A3B8;
+    margin-bottom: 10px;
+  }
+
+Content:
+  "FROM YOUR SESSION LOGS THIS WEEK"
+  Shows a row per logged day:
+    MON  ·  Tennis — Court  ·  ★ 4/5
+    WED  ·  S&C Session     ·  ★ 3/5
+    FRI  ·  Tennis — Match  ·  ★ 5/5
+
+  If no daily logs: this panel does not show.
+
+  This gives the athlete context when completing their weekly review —
+  they can see what they actually did before scoring their scorecard.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH VIEW OF DAILY REFLECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In the coach dashboard, under the Athlete Reviews section,
+add a "DAILY SESSION LOGS" tab alongside the weekly reflections tab.
+
+Shows a list of all logged days for the current week:
+  Day | Session Type | Focus (truncated) | Rating | Energy | Physical flag
+
+Physical flag: if physical_status field has content, show a
+  small amber ⚠ indicator so coach can spot anything to address.
+
+Tap any row to expand and see all five fields in full.
+Coach view is read-only — no editing.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESS SCREEN UPDATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On /progress, add a new section below the existing stats:
+
+  "SESSION LOG STREAK"
+  How many consecutive days has the athlete logged a session?
+  Show as a number + label: "14 days"
+
+  "SESSIONS THIS WEEK"
+  Count of daily logs for current week: e.g. "3 of 7 days logged"
+  Small bar showing which days have logs (Mon–Sun, filled or empty)
+
+  "AVERAGE SESSION RATING"
+  Mean of all session_rating values across the program.
+  Show as X.X / 5
+
+  "PHYSICAL FLAGS"
+  Count of daily logs where physical_status has content.
+  Label: "Flag your coach if this number is growing"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT DOES NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Weekly reflection content, fields or completion logic
+  - Week unlock rules (still based on weekly reflection completion)
+  - Scorecard dimensions or rating behaviour
+  - Phase 0 modules
+  - Competition review
+  - Monthly check-ins
+  - Capstone
+  - All existing database tables
+  - Design tokens, fonts, colours
+  - Auto-save behaviour
+  - Bottom navigation
+  - Coach dashboard (except the addition of daily logs tab)
+  - Parent dashboard
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - "MANDATORY" and "OPTIONAL" badges make the distinction
+    immediately clear without any explanation needed
+  - Weekly review: phase colour dominant throughout
+  - Daily logs: near-white (#F8FAFC) background — deliberately
+    lower visual weight than the weekly review
+  - The weekly review must feel more important than the daily logs
+    at a glance — hierarchy through colour and weight, not text
+  - No motivational language anywhere
+  - Space Mono for all labels and badges
+  - Barlow Condensed for all section headers
+  - Inter for all body text and placeholder text
+  - Mobile-first — modal bottom sheet works on phone screen
+  - All touch targets minimum 44px

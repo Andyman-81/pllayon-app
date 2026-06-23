@@ -769,3 +769,85 @@ body {
 .logout-btn:hover {
   background: rgba(255,73,54,.08);
 }
+
+/* ─── Daily Reflection ─── */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.day-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #F1F5F9;
+}
+.day-row:last-child { border-bottom: none; }
+.day-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #1E293B;
+  min-width: 44px;
+  flex-shrink: 0;
+}
+.day-status {
+  flex: 1;
+  font-size: 13px;
+  color: #94A3B8;
+  font-style: italic;
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.day-status.logged {
+  color: #1E293B;
+  font-style: normal;
+  font-weight: 500;
+}
+.day-log-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 100px;
+  border: 1.5px solid var(--phase-colour, #10AC6E);
+  color: var(--phase-colour, #10AC6E);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.day-log-btn:hover {
+  background: var(--phase-colour, #10AC6E);
+  color: #fff;
+}
+.day-log-btn.logged {
+  border-color: #E2E8F0;
+  color: #94A3B8;
+}
+.day-log-btn.logged:hover {
+  background: #F8FAFC;
+  color: #64748B;
+}
+.daily-summary {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.daily-summary-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #94A3B8;
+  margin-bottom: 10px;
+}

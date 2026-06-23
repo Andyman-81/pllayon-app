@@ -4,6 +4,7 @@ import {
   coachesTable, coachAthleteLinksTable, coachReviewsTable,
   athletesTable, usersTable, phase0ModulesTable, weeklyReflectionsTable,
   competitionReviewsTable, weeklySchedulesTable, cyclePlanTable,
+  dailyReflectionsTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
@@ -101,6 +102,19 @@ router.get("/coach/dashboard", async (req, res) => {
     phase0Modules,
     cyclePlan,
   });
+});
+
+/* GET /coach/daily-logs?weekNumber=N — daily session logs for linked athlete */
+router.get("/coach/daily-logs", async (req, res) => {
+  const userId = auth(req, res); if (!userId) return;
+  const weekNumber = parseInt(req.query.weekNumber as string || '1', 10);
+  const [coach] = await db.select().from(coachesTable).where(eq(coachesTable.userId, userId)).limit(1);
+  if (!coach) { res.status(404).json({ error: "Coach not found" }); return; }
+  const links = await db.select().from(coachAthleteLinksTable).where(eq(coachAthleteLinksTable.coachId, coach.id)).limit(1);
+  if (!links.length) { res.json([]); return; }
+  const logs = await db.select().from(dailyReflectionsTable)
+    .where(and(eq(dailyReflectionsTable.athleteId, links[0].athleteId), eq(dailyReflectionsTable.weekNumber, weekNumber)));
+  res.json(logs);
 });
 
 router.get("/coach/review", async (req, res) => {

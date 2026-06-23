@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
@@ -66,6 +66,20 @@ export default function CoachDashboard() {
   const phaseColour = linkedAthlete ? (PHASE_COLORS[linkedAthlete.phase] ?? BLUE) : BLUE;
   const currentWeek = linkedAthlete?.currentWeek ?? 1;
   const completedReflections = reflections.filter(r => r.completedAt);
+  const [reviewTab, setReviewTab] = useState<'weekly' | 'daily'>('weekly');
+
+  interface DailyLog {
+    id: number; dayOfWeek: string; sessionType?: string | null;
+    sessionFocus: string; wentWell?: string | null; challenging?: string | null;
+    developmentNote?: string | null; physicalStatus?: string | null;
+    sessionRating?: number | null; energyRating?: number | null;
+  }
+  const { data: dailyLogs = [] } = useQuery<DailyLog[]>({
+    queryKey: ['coach-daily-logs', currentWeek],
+    queryFn: () => apiFetch('/coach/daily-logs?weekNumber=' + currentWeek),
+    enabled: !!linkedAthlete,
+  });
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
 
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -203,50 +217,132 @@ export default function CoachDashboard() {
             {/* ── Section 4: Athlete Reviews ── */}
             <div style={{ marginBottom: 32 }}>
               <SectionHead title="Athlete Reviews" />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
 
-                {/* Phase 0 status */}
-                <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
-                  <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Phase 0 Status</div>
-                  {phase0Modules.length === 0
-                    ? <div style={{ fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)' }}>Not started</div>
-                    : phase0Modules.map(m => (
-                      <div key={m.moduleName} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 14 }}>{m.completed ? '✅' : '○'}</span>
-                        <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: m.completed ? 'var(--dark)' : 'var(--grey)', letterSpacing: '.04em' }}>{m.moduleName}</span>
-                      </div>
-                    ))
-                  }
-                </div>
-
-                {/* Reflections */}
-                <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
-                  <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Weekly Reflections</div>
-                  {completedReflections.length === 0
-                    ? <div style={{ fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)' }}>No reflections yet</div>
-                    : completedReflections.slice(0, 6).map(r => (
-                      <div key={r.weekNumber} onClick={() => navigate(`/week/${r.weekNumber}`)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F8FAFC', cursor: 'pointer' }}>
-                        <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, color: 'var(--dark)', letterSpacing: '.04em' }}>Week {r.weekNumber}</span>
-                        <span style={{ fontSize: 11, color: 'var(--grey)' }}>{r.completedAt ? new Date(r.completedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : ''}</span>
-                      </div>
-                    ))
-                  }
-                </div>
-
-                {/* Competition reviews */}
-                <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
-                  <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Competition Reviews</div>
-                  {competitionReviews.length === 0
-                    ? <div style={{ fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)' }}>No reviews yet</div>
-                    : competitionReviews.slice(0, 6).map(r => (
-                      <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F8FAFC' }}>
-                        <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, color: 'var(--dark)', letterSpacing: '.04em' }}>{r.competitionName ?? 'Match'}</span>
-                        <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: r.result === 'W' ? '#10AC6E' : r.result === 'L' ? '#FF4936' : 'var(--grey)', fontWeight: 700 }}>{r.result ?? ''}</span>
-                      </div>
-                    ))
-                  }
-                </div>
+              {/* Tab switcher */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                {(['weekly', 'daily'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setReviewTab(tab)}
+                    style={{
+                      padding: '7px 16px', borderRadius: 100, cursor: 'pointer',
+                      fontFamily: 'Space Mono, monospace', fontSize: 10, fontWeight: 700,
+                      letterSpacing: '.1em', textTransform: 'uppercase',
+                      border: `1.5px solid ${reviewTab === tab ? BLUE : 'var(--grey1)'}`,
+                      background: reviewTab === tab ? BLUE : '#fff',
+                      color: reviewTab === tab ? '#fff' : 'var(--grey)',
+                    }}
+                  >
+                    {tab === 'weekly' ? 'Weekly Reflections' : 'Daily Session Logs'}
+                  </button>
+                ))}
               </div>
+
+              {reviewTab === 'weekly' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
+                  {/* Phase 0 status */}
+                  <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
+                    <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Phase 0 Status</div>
+                    {phase0Modules.length === 0
+                      ? <div style={{ fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)' }}>Not started</div>
+                      : phase0Modules.map(m => (
+                        <div key={m.moduleName} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <span style={{ fontSize: 14 }}>{m.completed ? '✅' : '○'}</span>
+                          <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: m.completed ? 'var(--dark)' : 'var(--grey)', letterSpacing: '.04em' }}>{m.moduleName}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                  {/* Reflections */}
+                  <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
+                    <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Weekly Reflections</div>
+                    {completedReflections.length === 0
+                      ? <div style={{ fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)' }}>No reflections yet</div>
+                      : completedReflections.slice(0, 6).map(r => (
+                        <div key={r.weekNumber} onClick={() => navigate(`/week/${r.weekNumber}`)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F8FAFC', cursor: 'pointer' }}>
+                          <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, color: 'var(--dark)', letterSpacing: '.04em' }}>Week {r.weekNumber}</span>
+                          <span style={{ fontSize: 11, color: 'var(--grey)' }}>{r.completedAt ? new Date(r.completedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : ''}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                  {/* Competition reviews */}
+                  <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, padding: '16px' }}>
+                    <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 16, textTransform: 'uppercase', color: 'var(--dark)', marginBottom: 10 }}>Competition Reviews</div>
+                    {competitionReviews.length === 0
+                      ? <div style={{ fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)' }}>No reviews yet</div>
+                      : competitionReviews.slice(0, 6).map(r => (
+                        <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F8FAFC' }}>
+                          <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, color: 'var(--dark)', letterSpacing: '.04em' }}>{r.competitionName ?? 'Match'}</span>
+                          <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: r.result === 'W' ? '#10AC6E' : r.result === 'L' ? '#FF4936' : 'var(--grey)', fontWeight: 700 }}>{r.result ?? ''}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              ) : (
+                /* Daily session logs tab */
+                <div style={{ background: '#fff', border: '1px solid var(--grey1)', borderRadius: 10, overflow: 'hidden' }}>
+                  {dailyLogs.length === 0 ? (
+                    <div style={{ padding: '24px', textAlign: 'center', fontFamily: 'var(--font-b)', fontSize: 13, color: 'var(--grey)' }}>
+                      No session logs for Week {currentWeek} yet.
+                    </div>
+                  ) : (
+                    <>
+                      {/* Table header */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 60px 55px 55px 28px', gap: 8, padding: '8px 14px', background: '#F8FAFC', borderBottom: '1px solid var(--grey1)' }}>
+                        {['DAY','FOCUS','RATING','ENERGY','PHYSICAL',''].map(h => (
+                          <div key={h} style={{ fontFamily: 'Space Mono, monospace', fontSize: 8, letterSpacing: '.12em', textTransform: 'uppercase', color: '#94A3B8' }}>{h}</div>
+                        ))}
+                      </div>
+                      {dailyLogs.map(log => {
+                        const isExpanded = expandedLogId === log.id;
+                        const hasPhysical = !!(log.physicalStatus && log.physicalStatus.trim());
+                        return (
+                          <div key={log.id}>
+                            <div
+                              onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                              style={{ display: 'grid', gridTemplateColumns: '80px 1fr 60px 55px 55px 28px', gap: 8, padding: '11px 14px', borderBottom: '1px solid #F8FAFC', cursor: 'pointer', alignItems: 'center' }}
+                            >
+                              <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#1E293B', letterSpacing: '.1em' }}>{log.dayOfWeek.slice(0,3)}</div>
+                              <div style={{ fontSize: 12, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {log.sessionType && <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 9, color: BLUE, marginRight: 6 }}>{log.sessionType}</span>}
+                                {log.sessionFocus}
+                              </div>
+                              <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: log.sessionRating ? phaseColour : '#CBD5E1', fontWeight: 700 }}>
+                                {log.sessionRating ? `★ ${log.sessionRating}/5` : '—'}
+                              </div>
+                              <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: log.energyRating ? '#64748B' : '#CBD5E1' }}>
+                                {log.energyRating ? `${log.energyRating}/5` : '—'}
+                              </div>
+                              <div style={{ fontSize: 13 }}>
+                                {hasPhysical ? <span style={{ color: '#D97706' }} title={log.physicalStatus ?? ''}>⚠</span> : <span style={{ color: '#CBD5E1' }}>—</span>}
+                              </div>
+                              <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: '#94A3B8' }}>{isExpanded ? '▲' : '▼'}</div>
+                            </div>
+                            {isExpanded && (
+                              <div style={{ padding: '12px 14px 16px', background: '#F8FAFC', borderBottom: '1px solid var(--grey1)' }}>
+                                {[
+                                  { label: 'What they worked on', val: log.sessionFocus },
+                                  { label: 'What went well', val: log.wentWell },
+                                  { label: 'Challenging', val: log.challenging },
+                                  { label: 'Development note', val: log.developmentNote },
+                                  { label: 'Physical status', val: log.physicalStatus },
+                                ].map(f => f.val ? (
+                                  <div key={f.label} style={{ marginBottom: 10 }}>
+                                    <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 8, letterSpacing: '.14em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 3 }}>{f.label}</div>
+                                    <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5 }}>{f.val}</div>
+                                  </div>
+                                ) : null)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ── Section 5: Coach Review (Week 10+) ── */}

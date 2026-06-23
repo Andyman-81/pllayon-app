@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, timestamp, date, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, date, real, jsonb, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -153,3 +153,24 @@ export const sleepLogsTable = pgTable("sleep_logs", {
 export const insertSleepLogSchema = createInsertSchema(sleepLogsTable).omit({ id: true });
 export type InsertSleepLog = z.infer<typeof insertSleepLogSchema>;
 export type SleepLog = typeof sleepLogsTable.$inferSelect;
+
+export const dailyReflectionsTable = pgTable("daily_reflections", {
+  id: serial("id").primaryKey(),
+  athleteId: integer("athlete_id").notNull(),
+  weekNumber: integer("week_number").notNull(),
+  dayOfWeek: text("day_of_week").notNull(),
+  sessionType: text("session_type"),
+  sessionFocus: text("session_focus").notNull().default(''),
+  wentWell: text("went_well"),
+  challenging: text("challenging"),
+  developmentNote: text("development_note"),
+  physicalStatus: text("physical_status"),
+  sessionRating: integer("session_rating"),
+  energyRating: integer("energy_rating"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniquePerDay: unique().on(table.athleteId, table.weekNumber, table.dayOfWeek),
+}));
+
+export type DailyReflection = typeof dailyReflectionsTable.$inferSelect;
