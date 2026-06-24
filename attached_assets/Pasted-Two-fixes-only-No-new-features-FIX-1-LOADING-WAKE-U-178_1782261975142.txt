@@ -1,0 +1,244 @@
+Two fixes only. No new features.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 1 — LOADING / WAKE-UP ISSUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The Replit preview URL sometimes shows a blank screen
+or fails to load on first visit because the server
+is waking up from sleep.
+
+Add a loading screen that shows immediately while
+the app initialises, so the user sees something
+instead of a blank white screen.
+
+Create a root-level loading component that renders
+before anything else:
+
+In index.html — add this in the <body> before
+the React root div:
+
+  <div id="app-loader" style="
+    position: fixed;
+    inset: 0;
+    background: #0F172A;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+  ">
+    <div style="
+      font-size: 28px;
+      font-weight: 800;
+      color: #10AC6E;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    ">PLLAY ON</div>
+    <div style="
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,.1);
+      border-top: 3px solid #10AC6E;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    "></div>
+    <div style="
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.3);
+    ">LOADING...</div>
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </div>
+
+Then in main.tsx (or index.tsx), after React renders,
+hide the loader:
+
+  // After ReactDOM.createRoot(...).render(...)
+  const loader = document.getElementById('app-loader')
+  if (loader) {
+    loader.style.opacity = '0'
+    loader.style.transition = 'opacity 0.3s'
+    setTimeout(() => loader.remove(), 300)
+  }
+
+Also add this to the Supabase auth initialisation —
+do not render any routes until auth state is confirmed:
+
+  const [authReady, setAuthReady] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(() => {
+      setAuthReady(true)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      () => setAuthReady(true)
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (!authReady) return null
+  // then render routes
+
+This prevents the flash of login page before auth
+state is confirmed, which is what causes the apparent
+"not loading" issue.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 2 — TEST MODE / ROLE SWITCHER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add a developer test mode that allows role switching
+without logging out and without needing separate accounts.
+
+This is for testing only. It uses the same logged-in
+Supabase account but switches the role view in the UI.
+
+PART A — FLOATING TEST PANEL
+
+Add a small floating button in the bottom-left corner
+of every screen (all roles, all pages):
+
+  Position: fixed, bottom: 80px, left: 16px
+  (above the bottom nav)
+  Only show if URL contains 'replit.dev' OR if
+  localStorage has 'po_dev_mode' = 'true'
+  This means it auto-hides on a published production URL.
+
+Button appearance:
+  Width: 40px, height: 40px
+  Background: rgba(15,23,42,.9)
+  Border: 1px solid rgba(255,255,255,.15)
+  Border-radius: 50%
+  Content: "⚙" or "DEV" in Space Mono 9px white
+  cursor: pointer
+
+Tapping the button opens a small panel above it:
+
+  .dev-panel {
+    position: fixed;
+    bottom: 132px;
+    left: 16px;
+    width: 200px;
+    background: rgba(15,23,42,.97);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    padding: 16px;
+    z-index: 9999;
+    backdrop-filter: blur(12px);
+  }
+
+Panel content:
+
+  Title: "DEV — ROLE SWITCHER"
+  Space Mono 9px uppercase grey
+
+  Three role buttons stacked:
+
+    [▲ ATHLETE VIEW]
+    [◆ COACH VIEW  ]
+    [● PARENT VIEW ]
+
+  Each button:
+    Full width, height 36px
+    Background: transparent
+    Border: 1px solid rgba(255,255,255,.12)
+    Border-radius: 6px
+    Font: Space Mono 10px uppercase
+    Colour: role colour (green / blue / amber)
+    margin-bottom: 6px
+
+  Active role shown with filled background:
+    e.g. if current role is athlete:
+    [▲ ATHLETE VIEW] → background #10AC6E, white text
+
+  When a role button is tapped:
+    1. Update localStorage po_role to new role
+    2. Navigate to the correct dashboard:
+         athlete → /dashboard/athlete
+         coach   → /dashboard/coach
+         parent  → /dashboard/parent
+    3. Close the panel
+    4. Do NOT log out of Supabase
+    5. Do NOT re-fetch auth — same session, different view
+
+  Below buttons, a divider then:
+
+    "CURRENT SESSION"
+    Show: auth.uid() first 8 chars + "..."
+    Show: current role badge
+
+  Close the panel by tapping the ⚙ button again
+  or tapping anywhere outside.
+
+PART B — WHAT THIS ENABLES FOR TESTING
+
+With this panel, you can:
+  1. Log in once as athlete (your existing account)
+  2. Tap ⚙ → switch to COACH VIEW
+  3. See the coach dashboard with "No athlete linked"
+     or linked athlete data if the link exists
+  4. Tap ⚙ → switch to PARENT VIEW
+  5. See the parent dashboard
+  6. Switch back to ATHLETE VIEW — same session
+
+This means you do not need three separate accounts
+to test the three role views.
+
+Note: Coach and parent features that require a separate
+Supabase account (e.g. coach_athlete_links where
+coach_id must differ from athlete_id) will still need
+separate accounts for full end-to-end testing.
+But all UI views and layout can be tested with one account.
+
+PART C — DEV MODE TOGGLE ON LOGIN PAGE
+
+On the login page, add a small text link at the very bottom:
+
+  "Developer mode"
+  Font: Space Mono 9px, grey (#64748B)
+  Text-align: centre
+  Margin-top: 32px
+
+Tapping it toggles localStorage po_dev_mode between
+'true' and 'false' and shows a brief confirmation:
+  "Dev mode ON — test panel enabled"
+  or
+  "Dev mode OFF"
+  Shown as a small toast at the bottom of the screen
+  for 2 seconds then disappears.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Any existing functionality
+  - Database schema or RLS policies
+  - Login or registration logic
+  - Any page content or components
+  - Design tokens, colours, fonts
+  - Bottom navigation
+  - All features built so far
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEXT SPRINT AFTER THIS (do not build now)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The next prompt after this will replace the
+email-based athlete linking system with an
+invite code system:
+  - Coach generates a 6-digit code
+  - Athlete enters code to link
+  - Parent enters a separate code to link
+  - No email hunting required
+Do not build this now. Fix loading and add
+test panel first.

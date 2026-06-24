@@ -1,7 +1,7 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuth } from '@workspace/replit-auth-web';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import Dashboard from '@/pages/dashboard';
 import Onboarding from '@/pages/onboarding';
@@ -30,20 +30,148 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
 });
 
-const ROLES: { value: Role; label: string; colour: string }[] = [
-  { value: 'athlete', label: 'Athlete', colour: '#10AC6E' },
-  { value: 'coach',   label: 'Coach',   colour: '#0B7DF1' },
-  { value: 'parent',  label: 'Parent',  colour: '#D97706' },
+const ROLES: { value: Role; label: string; colour: string; symbol: string }[] = [
+  { value: 'athlete', label: 'Athlete', colour: '#10AC6E', symbol: '▲' },
+  { value: 'coach',   label: 'Coach',   colour: '#0B7DF1', symbol: '◆' },
+  { value: 'parent',  label: 'Parent',  colour: '#D97706', symbol: '●' },
 ];
 
+function isDevVisible(): boolean {
+  try {
+    return window.location.hostname.includes('replit.dev') ||
+      localStorage.getItem('po_dev_mode') === 'true';
+  } catch { return false; }
+}
+
+/* ── Dev Role Switcher Panel ─────────────────────────── */
+function DevPanel() {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [currentRole, setCurrentRole] = useState<Role>(getRole());
+  const [, navigate] = useLocation();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const visible = isDevVisible();
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+
+  if (!visible) return null;
+
+  function switchRole(role: Role) {
+    saveRole(role);
+    setCurrentRole(role);
+    setOpen(false);
+    queryClient.clear();
+    navigate(`/dashboard/${role}`, { replace: true });
+  }
+
+  const userId = (user as any)?.id ?? (user as any)?.name ?? '';
+  const shortId = userId ? String(userId).slice(0, 8) + '…' : '—';
+
+  return (
+    <div ref={panelRef} style={{ position: 'fixed', bottom: 80, left: 16, zIndex: 9998 }}>
+      {open && (
+        <div style={{
+          position: 'absolute', bottom: 52, left: 0,
+          width: 200,
+          background: 'rgba(15,23,42,.97)',
+          border: '1px solid rgba(255,255,255,.12)',
+          borderRadius: 10,
+          padding: 16,
+          backdropFilter: 'blur(12px)',
+        }}>
+          <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)', marginBottom: 12 }}>
+            DEV — ROLE SWITCHER
+          </div>
+
+          {ROLES.map(r => {
+            const active = currentRole === r.value;
+            return (
+              <button
+                key={r.value}
+                onClick={() => switchRole(r.value)}
+                style={{
+                  display: 'block', width: '100%', height: 36, marginBottom: 6,
+                  background: active ? r.colour : 'transparent',
+                  border: `1px solid ${active ? r.colour : 'rgba(255,255,255,.12)'}`,
+                  borderRadius: 6,
+                  fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase',
+                  color: active ? '#fff' : r.colour,
+                  cursor: 'pointer', textAlign: 'left', paddingLeft: 12,
+                }}
+              >
+                {r.symbol} {r.label} View
+              </button>
+            );
+          })}
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', margin: '12px 0 10px' }} />
+
+          <div style={{ fontFamily: 'var(--font-m)', fontSize: 8, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.25)', marginBottom: 6 }}>
+            Current Session
+          </div>
+          <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: 'rgba(255,255,255,.5)', marginBottom: 6 }}>
+            {shortId}
+          </div>
+          <div style={{
+            display: 'inline-block', padding: '2px 8px', borderRadius: 100,
+            background: ROLES.find(r => r.value === currentRole)?.colour + '30',
+            border: `1px solid ${ROLES.find(r => r.value === currentRole)?.colour}50`,
+            fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase',
+            color: ROLES.find(r => r.value === currentRole)?.colour,
+          }}>
+            {currentRole}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: 40, height: 40, borderRadius: '50%',
+          background: 'rgba(15,23,42,.9)',
+          border: '1px solid rgba(255,255,255,.15)',
+          color: '#fff', cursor: 'pointer',
+          fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.06em',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+        title="Dev role switcher"
+      >
+        ⚙
+      </button>
+    </div>
+  );
+}
+
+/* ── Login screen ────────────────────────────────────── */
 function LoginScreen() {
   const { login } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role>(getRole());
   const [, navigate] = useLocation();
+  const [toast, setToast] = useState('');
 
   function handleLogin() {
     saveRole(selectedRole);
     login();
+  }
+
+  function toggleDevMode() {
+    try {
+      const current = localStorage.getItem('po_dev_mode') === 'true';
+      const next = !current;
+      localStorage.setItem('po_dev_mode', next ? 'true' : 'false');
+      setToast(next ? 'Dev mode ON — test panel enabled' : 'Dev mode OFF');
+      setTimeout(() => setToast(''), 2000);
+    } catch {}
   }
 
   const activeColour = ROLES.find(r => r.value === selectedRole)?.colour ?? '#10AC6E';
@@ -61,7 +189,6 @@ function LoginScreen() {
           Development<br />Program
         </h1>
 
-        {/* Role selector — always visible */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
             I am accessing as
@@ -106,7 +233,28 @@ function LoginScreen() {
             Register →
           </button>
         </div>
+
+        <div style={{ marginTop: 32 }}>
+          <button
+            onClick={toggleDevMode}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.12em', color: '#64748B', padding: 0 }}
+          >
+            Developer mode
+          </button>
+        </div>
       </div>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(15,23,42,.95)', border: '1px solid rgba(255,255,255,.12)',
+          borderRadius: 8, padding: '10px 20px',
+          fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.1em',
+          color: 'rgba(255,255,255,.7)', whiteSpace: 'nowrap', zIndex: 9999,
+        }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
@@ -152,45 +300,48 @@ function SmartRoot() {
 
 function Router() {
   return (
-    <Switch>
-      {/* Root — role-aware */}
-      <Route path="/" component={() => <ProtectedRoute component={SmartRoot} />} />
+    <>
+      <Switch>
+        {/* Root — role-aware */}
+        <Route path="/" component={() => <ProtectedRoute component={SmartRoot} />} />
 
-      {/* Explicit login */}
-      <Route path="/login" component={LoginScreen} />
+        {/* Explicit login */}
+        <Route path="/login" component={LoginScreen} />
 
-      {/* Athlete routes */}
-      <Route path="/dashboard/athlete"              component={() => <ProtectedRoute component={Dashboard} />} />
-      <Route path="/register/athlete"               component={() => <ProtectedRoute component={Onboarding} />} />
-      <Route path="/onboarding"                     component={() => <ProtectedRoute component={Onboarding} />} />
-      <Route path="/phase0"                         component={() => <ProtectedRoute component={Phase0} />} />
-      <Route path="/week/:weekNumber"               component={() => <ProtectedRoute component={WeeklyReflection} />} />
-      <Route path="/month/:monthNumber/checkin"     component={() => <ProtectedRoute component={MonthlyCheckin} />} />
-      <Route path="/capstone"                       component={() => <ProtectedRoute component={Capstone} />} />
-      <Route path="/progress"                       component={() => <ProtectedRoute component={Progress} />} />
-      <Route path="/competition-review"             component={() => <ProtectedRoute component={CompetitionReview} />} />
-      <Route path="/competition-review/:id"         component={() => <ProtectedRoute component={CompetitionReview} />} />
-      <Route path="/appendix/:id"                   component={() => <ProtectedRoute component={Appendix} />} />
-      <Route path="/pre-comp"                       component={() => <ProtectedRoute component={PreComp} />} />
-      <Route path="/schedule/week/:weekNum"         component={() => <ProtectedRoute component={SchedulePage} />} />
-      <Route path="/cycle-planner"                  component={() => <ProtectedRoute component={CyclePlannerPage} />} />
+        {/* Athlete routes */}
+        <Route path="/dashboard/athlete"              component={() => <ProtectedRoute component={Dashboard} />} />
+        <Route path="/register/athlete"               component={() => <ProtectedRoute component={Onboarding} />} />
+        <Route path="/onboarding"                     component={() => <ProtectedRoute component={Onboarding} />} />
+        <Route path="/phase0"                         component={() => <ProtectedRoute component={Phase0} />} />
+        <Route path="/week/:weekNumber"               component={() => <ProtectedRoute component={WeeklyReflection} />} />
+        <Route path="/month/:monthNumber/checkin"     component={() => <ProtectedRoute component={MonthlyCheckin} />} />
+        <Route path="/capstone"                       component={() => <ProtectedRoute component={Capstone} />} />
+        <Route path="/progress"                       component={() => <ProtectedRoute component={Progress} />} />
+        <Route path="/competition-review"             component={() => <ProtectedRoute component={CompetitionReview} />} />
+        <Route path="/competition-review/:id"         component={() => <ProtectedRoute component={CompetitionReview} />} />
+        <Route path="/appendix/:id"                   component={() => <ProtectedRoute component={Appendix} />} />
+        <Route path="/pre-comp"                       component={() => <ProtectedRoute component={PreComp} />} />
+        <Route path="/schedule/week/:weekNum"         component={() => <ProtectedRoute component={SchedulePage} />} />
+        <Route path="/cycle-planner"                  component={() => <ProtectedRoute component={CyclePlannerPage} />} />
 
-      {/* Injury / Physical Flag routes */}
-      <Route path="/injury/new"  component={() => <ProtectedRoute component={InjuryNew} />} />
-      <Route path="/injury/:id"  component={() => <ProtectedRoute component={InjuryDetail} />} />
-      <Route path="/injury"      component={() => <ProtectedRoute component={InjuryList} />} />
+        {/* Injury / Physical Flag routes */}
+        <Route path="/injury/new"  component={() => <ProtectedRoute component={InjuryNew} />} />
+        <Route path="/injury/:id"  component={() => <ProtectedRoute component={InjuryDetail} />} />
+        <Route path="/injury"      component={() => <ProtectedRoute component={InjuryList} />} />
 
-      {/* Coach routes */}
-      <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach}   allowedRoles={['coach']} />} />
-      <Route path="/dashboard/coach"  component={() => <ProtectedRoute component={CoachDashboard}  allowedRoles={['coach']} />} />
-      <Route path="/coach-review"     component={() => <ProtectedRoute component={CoachReview}     allowedRoles={['coach']} />} />
+        {/* Coach routes */}
+        <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach}   allowedRoles={['coach']} />} />
+        <Route path="/dashboard/coach"  component={() => <ProtectedRoute component={CoachDashboard}  allowedRoles={['coach']} />} />
+        <Route path="/coach-review"     component={() => <ProtectedRoute component={CoachReview}     allowedRoles={['coach']} />} />
 
-      {/* Parent routes */}
-      <Route path="/register/parent"  component={() => <ProtectedRoute component={RegisterParent}  allowedRoles={['parent']} />} />
-      <Route path="/dashboard/parent" component={() => <ProtectedRoute component={ParentDashboard} allowedRoles={['parent']} />} />
+        {/* Parent routes */}
+        <Route path="/register/parent"  component={() => <ProtectedRoute component={RegisterParent}  allowedRoles={['parent']} />} />
+        <Route path="/dashboard/parent" component={() => <ProtectedRoute component={ParentDashboard} allowedRoles={['parent']} />} />
 
-      <Route component={NotFound} />
-    </Switch>
+        <Route component={NotFound} />
+      </Switch>
+      <DevPanel />
+    </>
   );
 }
 
