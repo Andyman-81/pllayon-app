@@ -117,7 +117,8 @@ router.post("/parent/observations", async (req, res) => {
   const [parent] = await db.select().from(parentsTable).where(eq(parentsTable.userId, userId)).limit(1);
   if (!parent) { res.status(404).json({ error: "Parent not found" }); return; }
   const links = await db.select().from(parentAthleteLinksTable).where(eq(parentAthleteLinksTable.parentId, parent.id)).limit(1);
-  const athleteId = links[0]?.athleteId ?? 0;
+  if (!links.length) { res.status(400).json({ error: "No linked athlete. Please link to your child's account first." }); return; }
+  const athleteId = links[0].athleteId;
   const [existing] = await db.select().from(parentWeeklyObservationsTable).where(and(eq(parentWeeklyObservationsTable.parentId, parent.id), eq(parentWeeklyObservationsTable.weekNumber, weekNumber))).limit(1);
   if (existing) {
     const [u] = await db.update(parentWeeklyObservationsTable).set({ observation }).where(eq(parentWeeklyObservationsTable.id, existing.id)).returning();

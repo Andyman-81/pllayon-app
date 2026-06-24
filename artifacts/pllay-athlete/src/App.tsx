@@ -119,10 +119,20 @@ function Spinner({ colour = '#10AC6E' }: { colour?: string }) {
   );
 }
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoute({ component: Component, allowedRoles }: { component: React.ComponentType; allowedRoles?: Role[] }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+  const role = getRole();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && allowedRoles && !allowedRoles.includes(role)) {
+      navigate(`/dashboard/${role}`, { replace: true });
+    }
+  }, [isLoading, isAuthenticated, role]);
+
   if (isLoading) return <Spinner />;
   if (!isAuthenticated) return <LoginScreen />;
+  if (allowedRoles && !allowedRoles.includes(role)) return <Spinner colour={role === 'coach' ? '#0B7DF1' : role === 'parent' ? '#D97706' : '#10AC6E'} />;
   return <Component />;
 }
 
@@ -171,13 +181,13 @@ function Router() {
       <Route path="/injury"      component={() => <ProtectedRoute component={InjuryList} />} />
 
       {/* Coach routes */}
-      <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach} />} />
-      <Route path="/dashboard/coach"  component={() => <ProtectedRoute component={CoachDashboard} />} />
-      <Route path="/coach-review"     component={() => <ProtectedRoute component={CoachReview} />} />
+      <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach}   allowedRoles={['coach']} />} />
+      <Route path="/dashboard/coach"  component={() => <ProtectedRoute component={CoachDashboard}  allowedRoles={['coach']} />} />
+      <Route path="/coach-review"     component={() => <ProtectedRoute component={CoachReview}     allowedRoles={['coach']} />} />
 
       {/* Parent routes */}
-      <Route path="/register/parent"  component={() => <ProtectedRoute component={RegisterParent} />} />
-      <Route path="/dashboard/parent" component={() => <ProtectedRoute component={ParentDashboard} />} />
+      <Route path="/register/parent"  component={() => <ProtectedRoute component={RegisterParent}  allowedRoles={['parent']} />} />
+      <Route path="/dashboard/parent" component={() => <ProtectedRoute component={ParentDashboard} allowedRoles={['parent']} />} />
 
       <Route component={NotFound} />
     </Switch>

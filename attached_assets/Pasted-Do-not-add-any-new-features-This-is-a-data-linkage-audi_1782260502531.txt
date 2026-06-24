@@ -1,0 +1,368 @@
+Do not add any new features.
+
+This is a data linkage audit and end-to-end test pass.
+Every feature built so far must be verified to actually
+work with real linked data between coach, athlete and parent.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE CORE PROBLEM TO SOLVE FIRST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every coach and parent query depends on this chain:
+
+  auth.uid() → coaches/parents table → coach_athlete_links
+  → athlete_id → all athlete data tables
+
+If any step in this chain is broken or returns null,
+the coach and parent dashboards show empty or crash.
+
+Audit every single query in the coach and parent modules.
+Verify the chain is complete and handled correctly at each step.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — CREATE A TEST HOOK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create a shared hook: useLinkedAthlete()
+
+This hook is used by every coach and parent component
+that needs to access athlete data.
+
+  export function useLinkedAthlete() {
+    const [athleteId, setAthleteId] = useState(null)
+    const [athleteData, setAthleteData] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+
+    useEffect(() => {
+      async function fetchLinkedAthlete() {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) { setError('Not logged in'); return }
+
+          const role = localStorage.getItem('po_role')
+
+          if (role === 'coach') {
+            // Get linked athlete via coach_athlete_links
+            const { data: link, error: linkError } = await supabase
+              .from('coach_athlete_links')
+              .select('athlete_id')
+              .eq('coach_id', user.id)
+              .single()
+
+            if (linkError || !link) {
+              setError('no_athlete_linked')
+              setLoading(false)
+              return
+            }
+
+            const { data: athlete } = await supabase
+              .from('athletes')
+              .select('*')
+              .eq('id', link.athlete_id)
+              .single()
+
+            setAthleteId(link.athlete_id)
+            setAthleteData(athlete)
+
+          } else if (role === 'parent') {
+            // Get linked athlete via parent_athlete_links
+            const { data: link, error: linkError } = await supabase
+              .from('parent_athlete_links')
+              .select('athlete_id')
+              .eq('parent_id', user.id)
+              .single()
+
+            if (linkError || !link) {
+              setError('no_athlete_linked')
+              setLoading(false)
+              return
+            }
+
+            const { data: athlete } = await supabase
+              .from('athletes')
+              .select('id, name, sport')
+              .eq('id', link.athlete_id)
+              .single()
+
+            setAthleteId(link.athlete_id)
+            setAthleteData(athlete)
+          }
+        } catch (e) {
+          setError(e.message)
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchLinkedAthlete()
+    }, [])
+
+    return { athleteId, athleteData, loading, error }
+  }
+
+Replace all existing coach and parent data fetching with this hook.
+No coach or parent component should be querying athlete data
+without going through useLinkedAthlete() first.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — HANDLE ALL LOADING AND ERROR STATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every component that uses useLinkedAthlete() must handle
+all three states before rendering content:
+
+  const { athleteId, athleteData, loading, error } = useLinkedAthlete()
+
+  // Handle loading
+  if (loading) return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '200px', flexDirection: 'column', gap: '12px'
+    }}>
+      <div style={{
+        width: '32px', height: '32px', borderRadius: '50%',
+        border: '3px solid #F1F5F9',
+        borderTop: '3px solid #0B7DF1',
+        animation: 'spin 1s linear infinite'
+      }} />
+      <p style={{
+        fontFamily: 'Space Mono', fontSize: '10px',
+        letterSpacing: '.14em', textTransform: 'uppercase',
+        color: '#94A3B8'
+      }}>Loading athlete data...</p>
+    </div>
+  )
+
+  // Handle no athlete linked
+  if (error === 'no_athlete_linked') return <NoAthleteLinked />
+
+  // Handle other errors
+  if (error) return (
+    <div style={{ padding: '24px', textAlign: 'center', color: '#FF4936' }}>
+      <p style={{ fontFamily: 'Space Mono', fontSize: '12px' }}>
+        Something went wrong. Please refresh.
+      </p>
+    </div>
+  )
+
+  // Safe to render with athleteId and athleteData guaranteed non-null
+  return ( ... )
+
+The NoAthleteLinked component already exists on the coach dashboard.
+Extract it into a shared component so it can be reused everywhere.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — AUDIT EVERY COACH FEATURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For each feature, verify it correctly uses athleteId from
+useLinkedAthlete() and NOT auth.uid() when querying athlete data.
+
+Coach dashboard — /dashboard/coach
+  □ Shows linked athlete name, phase, week, completion %
+  □ Shows open injury flags count with correct athlete_id filter
+  □ Shows weekly reflections list for linked athlete
+  □ Shows competition reviews list for linked athlete
+  □ Phase 0 completion status for linked athlete
+
+Weekly schedule — /schedule/week/:weekNum (coach edit mode)
+  □ Saves sessions with correct athlete_id (linked athlete, not coach)
+  □ Loads existing sessions for the linked athlete
+  □ Publish toggle updates correct athlete's schedule
+  □ Carry forward copies from previous week for correct athlete
+
+12-week cycle planner — /cycle-planner (coach edit mode)
+  □ Saves events with correct athlete_id
+  □ Loads existing events for linked athlete
+  □ Pre-populates Month 1, Month 2, Capstone reviews on first open
+  □ Publish button updates correct athlete's plan
+  □ Phase timeline shows correct colours
+
+Coach review — /coach-review
+  □ Saves with both coach_id (auth.uid()) AND athlete_id (linked)
+  □ Loads existing review for this coach + athlete pair
+  □ Auto-saves correctly
+
+Injury flags — coach view
+  □ Lists injury flags filtered by linked athlete_id
+  □ Injury banner on dashboard counts open flags for linked athlete
+  □ Coach response saves to correct flag (by flag id, not athlete)
+  □ Status update saves correctly
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — AUDIT EVERY PARENT FEATURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Parent dashboard — /dashboard/parent
+  □ Shows linked athlete name, phase, current week
+  □ Shows correct parent question for current week
+  □ Weekly schedule summary (if published) shows for linked athlete
+  □ Cycle plan (if published) shows for linked athlete
+
+Parent weekly observation
+  □ Saves with parent_id (auth.uid()) AND athlete_id (linked)
+  □ Loads previous observations for this parent correctly
+  □ Week number is correct for current week
+
+Parent check-in observations (Month 1 and Month 2)
+  □ Appears at correct week (4 and 8)
+  □ Saves with correct parent_id and athlete_id
+
+Injury flag — parent logging
+  □ Parent can log a flag with logged_by = 'parent'
+  □ Flag saves with correct athlete_id (linked athlete)
+  □ Parent sees all flags (athlete-logged + parent-logged)
+    for linked athlete only
+
+Parent link page — /parent/link-athlete
+  □ Search by email finds athlete correctly
+  □ Confirmation card shows correct athlete name
+  □ Link saves to parent_athlete_links correctly
+  □ After linking, /dashboard/parent shows athlete data
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — ATHLETE SEES COACH AND PARENT DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Verify the athlete-facing views of coach-created content:
+
+Weekly schedule — athlete view
+  □ Athlete sees sessions created by coach (where published = true)
+  □ Athlete CANNOT edit or delete coach sessions
+  □ Athlete CAN add their own day note per day
+  □ If not published: shows "Coach hasn't published this week yet"
+  □ Session summary shows correctly on weekly reflection page
+
+Cycle planner — athlete view
+  □ Athlete sees events created by coach (where published = true)
+  □ Athlete CANNOT edit coach events
+  □ Athlete CAN add their own weekly goal
+  □ If not published: shows correct message
+  □ Phase timeline shows correctly
+
+Injury flags — athlete view
+  □ Athlete sees all their own flags
+  □ Athlete sees coach response when it exists
+  □ Athlete can log new flags
+  □ Open flag indicator shows in daily reflection modal
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — RLS POLICY AUDIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check that Row Level Security policies in Supabase allow:
+
+  weekly_schedules:
+    INSERT: coach (auth.uid() = athlete_id via link)
+    SELECT: athlete (own data), coach (linked), parent (linked + published)
+    UPDATE: coach only
+    DELETE: coach only
+
+  cycle_plan:
+    Same pattern as weekly_schedules
+
+  injury_flags:
+    INSERT: athlete (own) + parent (linked athlete)
+    SELECT: athlete (own) + coach (linked) + parent (linked)
+    UPDATE: coach only (for response fields)
+
+  coach_reviews:
+    INSERT/UPDATE/SELECT: coach only (own rows)
+    SELECT: athlete (own athlete_id, read-only) — only after capstone
+
+If any policy is missing or wrong, add/fix it now.
+
+Run a test:
+  Log in as athlete → try to access /dashboard/coach
+  → Should redirect to /dashboard/athlete or show access denied
+  → Should NOT show coach data
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7 — NAVIGATION GUARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add route guards based on role:
+
+  /dashboard/coach    → redirects to /dashboard/athlete if role !== 'coach'
+  /dashboard/parent   → redirects to /dashboard/athlete if role !== 'parent'
+  /dashboard/athlete  → redirects to /dashboard/coach if role === 'coach'
+  /coach-review       → coach only
+  /coach/link-athlete → coach only
+  /parent/link-athlete → parent only
+
+If not logged in at all: any protected route → /login
+
+Implement as a ProtectedRoute wrapper component:
+
+  function ProtectedRoute({ allowedRoles, children }) {
+    const role = localStorage.getItem('po_role')
+    const { data: { session } } = useSession() // or however auth is checked
+
+    if (!session) return <Navigate to="/login" />
+    if (allowedRoles && !allowedRoles.includes(role)) {
+      return <Navigate to={`/dashboard/${role || 'athlete'}`} />
+    }
+    return children
+  }
+
+  // Usage in router:
+  <Route path="/dashboard/coach" element={
+    <ProtectedRoute allowedRoles={['coach']}>
+      <CoachDashboard />
+    </ProtectedRoute>
+  } />
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8 — SMOKE TEST CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After all fixes, manually verify this exact sequence:
+
+ATHLETE FLOW:
+  □ Register as athlete (new email)
+  □ Complete Phase 0 Module 0.1 — saves correctly
+  □ Complete Week 1 reflection — week marked complete
+  □ Add a daily reflection for Monday — saves correctly
+  □ Log an injury flag — saves with correct athlete_id
+  □ View weekly schedule — shows "coach hasn't published yet"
+  □ View cycle planner — shows "coach hasn't published yet"
+
+COACH FLOW:
+  □ Register as coach (different email)
+  □ Link to athlete using athlete's email — link saves
+  □ Coach dashboard shows athlete name and status
+  □ Build Week 1 schedule — sessions save with athlete_id
+  □ Publish schedule — athlete can now see it
+  □ Add tournament to cycle planner — saves correctly
+  □ Publish cycle plan — athlete can now see it
+  □ View athlete's Week 1 reflection — read-only, correct data
+  □ Respond to injury flag — response saves, status updates
+  □ Injury banner dismisses correctly
+
+PARENT FLOW:
+  □ Register as parent (third email)
+  □ Link to athlete using athlete's email — link saves
+  □ Parent dashboard shows athlete name and current week
+  □ Correct parent question shows for current week
+  □ Add weekly observation — saves with parent_id + athlete_id
+  □ View published weekly schedule — read-only, correct sessions
+  □ Log an injury flag as parent — saves with logged_by = 'parent'
+  □ Athlete sees parent-logged flag in their injury list
+
+ROLE SWITCHING:
+  □ Log in as athlete, switch to coach via profile menu
+  → Goes to coach dashboard (if registered) or /register/coach
+  □ Log in as coach, switch to athlete
+  → Goes to athlete dashboard
+  □ Log out → returns to /login, localStorage cleared
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT ADD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  No new features.
+  No UI changes beyond loading and error states.
+  No design changes.
+  Fix data linkage only.
+  If something is not in this prompt — leave it alone.
