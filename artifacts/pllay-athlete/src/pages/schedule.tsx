@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useParams } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
@@ -26,11 +26,29 @@ function sessionColour(type: string) {
   return SESSION_TYPES.find(s => s.label === type)?.colour ?? '#64748B';
 }
 
+/* ── Load category mapping ───────────────────────────── */
+type LoadCatKey = 'sport' | 'strength' | 'speed' | 'conditioning';
+
+const LOAD_CATS: { key: LoadCatKey; label: string; barColour: string; pillBg: string; pillText: string; pillLabel: string }[] = [
+  { key: 'sport',        label: 'Sport / Tennis',   barColour: '#10AC6E', pillBg: '#10AC6E', pillText: '#fff', pillLabel: 'SPORT' },
+  { key: 'strength',     label: 'Strength & Power', barColour: '#0B7DF1', pillBg: '#0B7DF1', pillText: '#fff', pillLabel: 'STR' },
+  { key: 'speed',        label: 'Speed & Agility',  barColour: '#F5B809', pillBg: '#F5B809', pillText: '#1E293B', pillLabel: 'SPD' },
+  { key: 'conditioning', label: 'Conditioning',     barColour: '#7C3AED', pillBg: '#7C3AED', pillText: '#fff', pillLabel: 'COND' },
+];
+
+function catForSession(type: string): LoadCatKey | null {
+  if (type === 'Tennis — Court' || type === 'Tennis — Match') return 'sport';
+  if (type === 'S&C — Strength/Power') return 'strength';
+  if (type === 'S&C — Speed/Agility') return 'speed';
+  if (type === 'S&C — Conditioning' || type === 'Body Management' || type === 'Recovery') return 'conditioning';
+  return null;
+}
+
 function durationHours(from?: string | null, to?: string | null): number {
   if (!from || !to) return 0;
   const parse = (t: string) => { const [h, m] = t.split(':').map(Number); return h + m / 60; };
   const d = parse(to) - parse(from);
-  return d > 0 ? d : 0;
+  return d > 0 ? Math.round(d * 10) / 10 : 0;
 }
 
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -88,7 +106,6 @@ export default function SchedulePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: NOTES_KEY }),
   });
 
-  /* Add Session modal state */
   const [modalDay, setModalDay] = useState<string | null>(null);
   const [newSession, setNewSession] = useState({ sessionType: SESSION_TYPES[0].label, timeFrom: '07:00', timeTo: '08:00', notes: '' });
   const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -113,20 +130,32 @@ export default function SchedulePage() {
   const notes: any[] = notesData ?? [];
   const hasSessions = sessions.length > 0;
 
-  /* Weekly totals by category */
-  const totals = { Tennis: 0, 'S&C': 0, School: 0, Recovery: 0, Other: 0 };
+  /* ── Per-category weekly totals ── */
+  const weeklyTotals: Record<LoadCatKey, number> = { sport: 0, strength: 0, speed: 0, conditioning: 0 };
   for (const s of sessions) {
-    const h = durationHours(s.timeFrom, s.timeTo);
-    if (s.sessionType.startsWith('Tennis')) totals.Tennis += h;
-    else if (s.sessionType.startsWith('S&C')) totals['S&C'] += h;
-    else if (s.sessionType.startsWith('School')) totals.School += h;
-    else if (s.sessionType === 'Recovery') totals.Recovery += h;
-    else totals.Other += h;
+    const cat = catForSession(s.sessionType);
+    if (cat) weeklyTotals[cat] += durationHours(s.timeFrom, s.timeTo);
   }
-  const totalLoad = Object.values(totals).reduce((a, b) => a + b, 0);
+  const totalTrainingLoad = Object.values(weeklyTotals).reduce((a, b) => a + b, 0);
+  const maxCatLoad = Math.max(...Object.values(weeklyTotals), 0.01);
+
+  /* ── Per-day category totals ── */
+  function dayLoadByCategory(day: string): Partial<Record<LoadCatKey, number>> {
+    const result: Partial<Record<LoadCatKey, number>> = {};
+    for (const s of sessions.filter((s: any) => s.dayOfWeek === day)) {
+      const cat = catForSession(s.sessionType);
+      if (cat) {
+        result[cat] = (result[cat] ?? 0) + durationHours(s.timeFrom, s.timeTo);
+      }
+    }
+    return result;
+  }
 
   const isPublished = published;
   const showUnpublished = (role === 'athlete' || role === 'parent') && !isPublished;
+
+  const totalSessions = sessions.length;
+  const activeDays = DAYS.filter(d => sessions.some((s: any) => s.dayOfWeek === d)).length;
 
   return (
     <Layout currentPhase={0} currentSection={`Week ${weekNumber} Schedule`}>
@@ -160,7 +189,7 @@ export default function SchedulePage() {
           </div>
         )}
 
-        {/* Carry forward prompt (coach, no sessions) */}
+        {/* Carry forward prompt */}
         {role === 'coach' && !hasSessions && weekNumber > 1 && (
           <div style={{ margin: '20px 20px 0', padding: '16px', background: '#0B7DF115', border: '1px solid #0B7DF130', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, color: PH, letterSpacing: '.06em' }}>Copy from Week {weekNumber - 1}?</span>
@@ -176,10 +205,13 @@ export default function SchedulePage() {
           {DAYS.map(day => {
             const daySessions = sessions.filter((s: any) => s.dayOfWeek === day);
             const dayNote = notes.find((n: any) => n.dayOfWeek === day);
+            const dayLoad = dayLoadByCategory(day);
+            const hasDayLoad = Object.keys(dayLoad).length > 0;
+
             return (
               <div key={day} style={{ marginBottom: 16, background: '#fff', border: '1px solid var(--grey1)', borderRadius: 8, overflow: 'hidden' }}>
                 {/* Day row header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--grey1)', borderBottom: daySessions.length > 0 ? '1px solid var(--grey1)' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--grey1)', borderBottom: daySessions.length > 0 || hasDayLoad ? '1px solid var(--grey1)' : 'none' }}>
                   <span style={{ fontFamily: 'var(--font-m)', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dark)' }}>{day}</span>
                   {role === 'coach' && (
                     <button
@@ -193,7 +225,7 @@ export default function SchedulePage() {
 
                 {/* Sessions */}
                 {daySessions.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 14px 6px' }}>
                     {daySessions.map((s: any) => (
                       <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: `${sessionColour(s.sessionType)}15`, border: `1.5px solid ${sessionColour(s.sessionType)}40`, borderLeft: `4px solid ${sessionColour(s.sessionType)}`, borderRadius: '0 6px 6px 0', padding: '7px 10px', minHeight: 44 }}>
                         <div>
@@ -211,6 +243,25 @@ export default function SchedulePage() {
                           >×</button>
                         )}
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Daily load pills */}
+                {hasDayLoad && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '4px 14px 10px' }}>
+                    {LOAD_CATS.filter(cat => (dayLoad[cat.key] ?? 0) > 0).map(cat => (
+                      <span
+                        key={cat.key}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '3px 10px', borderRadius: 100,
+                          background: cat.pillBg, color: cat.pillText,
+                          fontFamily: 'var(--font-m)', fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
+                        }}
+                      >
+                        {cat.pillLabel} {(dayLoad[cat.key]!).toFixed(1)}h
+                      </span>
                     ))}
                   </div>
                 )}
@@ -235,20 +286,37 @@ export default function SchedulePage() {
           })}
         </div>
 
-        {/* Weekly totals */}
-        <div style={{ margin: '8px 20px 0', padding: '16px', background: '#fff', border: '1px solid var(--grey1)', borderRadius: 8 }}>
-          <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--grey)', fontWeight: 700, marginBottom: 10 }}>Weekly Load</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-            {Object.entries(totals).filter(([, h]) => h > 0).map(([cat, h]) => (
-              <div key={cat} style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.08em', color: 'var(--dark)' }}>
-                <span style={{ color: 'var(--grey)', textTransform: 'uppercase' }}>{cat}: </span>
-                <strong>{h.toFixed(1)}h</strong>
+        {/* ── Weekly Load Card ── */}
+        <div style={{ margin: '8px 20px 0', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: '#64748B', marginBottom: 16 }}>Weekly Training Load</div>
+
+          {LOAD_CATS.map(cat => {
+            const hours = weeklyTotals[cat.key];
+            const barWidth = hours > 0 ? (hours / maxCatLoad) * 100 : 0;
+            return (
+              <div key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#1E293B', minWidth: 140 }}>{cat.label}</div>
+                <div style={{ flex: 1, height: 8, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${barWidth}%`, background: cat.barColour, borderRadius: 4, transition: 'width .4s ease' }} />
+                </div>
+                <div style={{ fontFamily: 'var(--font-d)', fontWeight: 700, fontSize: 18, color: '#1E293B', minWidth: 44, textAlign: 'right' }}>{hours.toFixed(1)}</div>
+                <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, color: '#94A3B8', minWidth: 16 }}>h</div>
               </div>
-            ))}
-            <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.08em', color: 'var(--dark)', marginLeft: 'auto' }}>
-              <span style={{ color: 'var(--grey)', textTransform: 'uppercase' }}>Total: </span>
-              <strong>{totalLoad.toFixed(1)}h</strong>
+            );
+          })}
+
+          {/* Total */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0 0' }}>
+            <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#1E293B', minWidth: 140 }}>Total Training</div>
+            <div style={{ flex: 1, height: 8, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: '100%', background: '#1E293B', borderRadius: 4 }} />
             </div>
+            <div style={{ fontFamily: 'var(--font-d)', fontWeight: 700, fontSize: 18, color: '#1E293B', minWidth: 44, textAlign: 'right' }}>{totalTrainingLoad.toFixed(1)}</div>
+            <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, color: '#94A3B8', minWidth: 16 }}>h</div>
+          </div>
+
+          <div style={{ marginTop: 14, fontFamily: 'var(--font-m)', fontSize: 10, color: '#94A3B8', letterSpacing: '.06em' }}>
+            {totalSessions} session{totalSessions !== 1 ? 's' : ''} this week · {activeDays} day{activeDays !== 1 ? 's' : ''} active
           </div>
         </div>
 
@@ -264,7 +332,6 @@ export default function SchedulePage() {
             <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 24, textTransform: 'uppercase', color: 'var(--black)', marginBottom: 4 }}>Add Session</div>
             <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: 'var(--grey)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 20 }}>{modalDay}</div>
 
-            {/* Session type pills */}
             <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--grey)', marginBottom: 8 }}>Session Type</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
               {SESSION_TYPES.map(st => (
@@ -278,7 +345,6 @@ export default function SchedulePage() {
               ))}
             </div>
 
-            {/* Time */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
               {(['timeFrom', 'timeTo'] as const).map(field => (
                 <div key={field}>
@@ -294,7 +360,6 @@ export default function SchedulePage() {
               ))}
             </div>
 
-            {/* Notes */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--grey)', marginBottom: 6 }}>Notes (optional)</div>
               <input

@@ -24,6 +24,10 @@ import CoachReview from '@/pages/coach-review';
 import InjuryNew from '@/pages/injury-new';
 import InjuryList from '@/pages/injury-list';
 import InjuryDetail from '@/pages/injury-detail';
+import CoachAthleteNew from '@/pages/coach-athlete-new';
+import CoachAthleteCode from '@/pages/coach-athlete-code';
+import CoachAthletes from '@/pages/coach-athletes';
+import AthleteEnterCode from '@/pages/athlete-enter-code';
 import { getRole, saveRole, type Role } from '@/lib/useRole';
 
 const queryClient = new QueryClient({
@@ -330,9 +334,15 @@ function Router() {
         <Route path="/injury"      component={() => <ProtectedRoute component={InjuryList} />} />
 
         {/* Coach routes */}
-        <Route path="/register/coach"   component={() => <ProtectedRoute component={RegisterCoach}   allowedRoles={['coach']} />} />
-        <Route path="/dashboard/coach"  component={() => <ProtectedRoute component={CoachDashboard}  allowedRoles={['coach']} />} />
-        <Route path="/coach-review"     component={() => <ProtectedRoute component={CoachReview}     allowedRoles={['coach']} />} />
+        <Route path="/register/coach"              component={() => <ProtectedRoute component={RegisterCoach}    allowedRoles={['coach']} />} />
+        <Route path="/dashboard/coach"             component={() => <ProtectedRoute component={CoachDashboard}   allowedRoles={['coach']} />} />
+        <Route path="/coach-review"                component={() => <ProtectedRoute component={CoachReview}      allowedRoles={['coach']} />} />
+        <Route path="/coach/athlete/new"           component={() => <ProtectedRoute component={CoachAthleteNew}  allowedRoles={['coach']} />} />
+        <Route path="/coach/athlete/:profileId/code" component={() => <ProtectedRoute component={CoachAthleteCode} allowedRoles={['coach']} />} />
+        <Route path="/coach/athletes"              component={() => <ProtectedRoute component={CoachAthletes}    allowedRoles={['coach']} />} />
+
+        {/* Athlete — enter code */}
+        <Route path="/athlete/enter-code" component={() => <ProtectedRoute component={AthleteEnterCode} allowedRoles={['athlete']} />} />
 
         {/* Parent routes */}
         <Route path="/register/parent"  component={() => <ProtectedRoute component={RegisterParent}  allowedRoles={['parent']} />} />

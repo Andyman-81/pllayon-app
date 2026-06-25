@@ -175,6 +175,14 @@ export const dailyReflectionsTable = pgTable("daily_reflections", {
 
 export type DailyReflection = typeof dailyReflectionsTable.$inferSelect;
 
+export const programSettingsTable = pgTable("program_settings", {
+  id: serial("id").primaryKey(),
+  athleteId: integer("athlete_id").notNull().unique(),
+  programStartDate: text("program_start_date"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type ProgramSettings = typeof programSettingsTable.$inferSelect;
+
 export const injuryFlagsTable = pgTable("injury_flags", {
   id: serial("id").primaryKey(),
   athleteId: integer("athlete_id").notNull(),

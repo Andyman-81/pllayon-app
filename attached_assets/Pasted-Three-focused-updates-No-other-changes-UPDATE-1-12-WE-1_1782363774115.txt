@@ -1,0 +1,512 @@
+Three focused updates. No other changes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE 1 — 12-WEEK PLAN: START DATE + WEEK DATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add a program start date to the 12-week cycle planner.
+One date entry cascades actual dates to all 12 weeks.
+
+LOCATION
+At the top of /cycle-planner, above the phase timeline,
+add a START DATE card:
+
+  .start-date-card {
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+Left side:
+  Label: "PROGRAM START DATE"
+  Space Mono 10px uppercase grey
+
+  Date input:
+    type: date (native date picker)
+    Styled to match app:
+      border: 1.5px solid #E2E8F0
+      border-radius: 8px
+      padding: 10px 14px
+      font-family: Inter 14px
+      color: #1E293B
+      On focus: border-color #0B7DF1
+
+Right side (calculated, read-only):
+  "PROGRAM END DATE"
+  Space Mono 10px uppercase grey
+  Auto-calculated: start date + 83 days (12 weeks)
+  Display as: "DD MMM YYYY"
+  Font: Barlow Condensed 18px #1E293B
+
+DATABASE
+Add start_date column to cycle_plan or create a
+separate program_settings table:
+
+  create table program_settings (
+    id uuid primary key default gen_random_uuid(),
+    athlete_id uuid references athletes(id)
+      on delete cascade unique,
+    program_start_date date,
+    updated_at timestamptz default now()
+  );
+
+  alter table program_settings enable row level security;
+  create policy "settings_own" on program_settings
+    using (auth.uid() = athlete_id);
+
+Also allow coach to write (for linked athlete):
+  create policy "settings_coach" on program_settings
+    for all using (
+      exists (
+        select 1 from coach_athlete_links
+        where coach_id = auth.uid()
+        and athlete_id = program_settings.athlete_id
+      )
+    );
+
+WEEK DATE DISPLAY
+Once start date is set, every week in the plan
+shows its actual date range.
+
+In the phase timeline grid, each cell shows:
+  Top: "W1" (week number)
+  Bottom: "30 Jun" (start date of that week, short format)
+
+In the week-by-week table, add a DATE RANGE column
+between WEEK and PHASE:
+  W1  |  30 Jun – 6 Jul  |  PH1 FOUNDATION  | ...
+
+Calculate each week's date range:
+  Week N start = start_date + ((N-1) × 7) days
+  Week N end   = start_date + ((N-1) × 7) + 6 days
+  Format: "30 Jun – 6 Jul"
+
+If no start date is set yet:
+  Show "Set a start date above to see dates"
+  in grey italic where dates would appear.
+
+Auto-save the start date 500ms after selection.
+Show "Saved ✓" confirmation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE 2 — WEEKLY SCHEDULE: LOAD CALCULATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Calculate and display training load per day and
+per week, stratified by session category.
+
+SESSION CATEGORY MAPPING
+Map existing session types to four load categories:
+
+  SPORT / TENNIS:
+    "Tennis — Court"
+    "Tennis — Match"
+
+  STRENGTH & POWER:
+    "S&C — Strength/Power"
+
+  SPEED & AGILITY:
+    "S&C — Speed/Agility"
+
+  CONDITIONING:
+    "S&C — Conditioning"
+    "Body Management"
+    "Recovery"
+
+  NOT COUNTED IN TRAINING LOAD:
+    "School — Lessons"
+    "School — Sport"
+    "School — Exam"
+    "Rest Day"
+
+DURATION CALCULATION
+When a session is added with time_from and time_to:
+  Duration in hours = (time_to - time_from) in minutes / 60
+  Round to 1 decimal place
+  e.g. 5:00pm to 6:30pm = 1.5h
+
+Store duration as a calculated value when saving:
+  Add a duration_hours float column to weekly_schedules:
+
+  alter table weekly_schedules
+    add column duration_hours float generated always as (
+      case
+        when time_from is not null and time_to is not null
+        then round(
+          (extract(epoch from (
+            to_timestamp(time_to, 'HH12:MI AM') -
+            to_timestamp(time_from, 'HH12:MI AM')
+          )) / 3600)::numeric, 1
+        )
+        else 0
+      end
+    ) stored;
+
+If the generated column approach is complex with your
+time format, calculate duration_hours in JavaScript
+when saving and store it as a regular float column.
+
+DAILY LOAD DISPLAY
+On each day row in the schedule, after sessions
+are added, show a small load summary below the sessions:
+
+  .day-load-summary {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .load-pill {
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+
+Show only categories that have sessions that day:
+  Sport/Tennis:        green  #10AC6E bg, white text
+  Strength & Power:    blue   #0B7DF1 bg, white text
+  Speed & Agility:     yellow #F5B809 bg, dark text
+  Conditioning:        purple #7C3AED bg, white text
+
+Example for a day with 2 sessions:
+  [SPORT 1.5h] [S&P 1.0h]
+
+WEEKLY LOAD SUMMARY
+Replace the current "WEEKLY LOAD / TOTAL: 0.0h" section
+with a full stratified load card at the bottom of the page:
+
+  .weekly-load-card {
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-top: 24px;
+  }
+  .load-card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #64748B;
+    margin-bottom: 16px;
+  }
+  .load-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #F1F5F9;
+  }
+  .load-row:last-child { border-bottom: none; }
+  .load-category-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    min-width: 140px;
+  }
+  .load-bar-outer {
+    flex: 1;
+    height: 8px;
+    background: #F1F5F9;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .load-bar-inner {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .4s ease;
+  }
+  .load-hours {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #1E293B;
+    min-width: 44px;
+    text-align: right;
+  }
+  .load-hours-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: #94A3B8;
+    min-width: 16px;
+  }
+
+Four load rows:
+  SPORT / TENNIS      [green bar]   [X.X] h
+  STRENGTH & POWER    [blue bar]    [X.X] h
+  SPEED & AGILITY     [yellow bar]  [X.X] h
+  CONDITIONING        [purple bar]  [X.X] h
+
+Divider then:
+  TOTAL TRAINING LOAD [dark bar]    [X.X] h
+
+Bar widths are proportional to total — the highest
+category gets full width, others scale accordingly.
+
+SESSIONS COUNT below the load table:
+  "X sessions this week  ·  X days active"
+  Space Mono 10px grey
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE 3 — INVITE CODE ATHLETE LINKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the email-lookup linking system with an
+invite code system.
+
+Coach creates an athlete profile and generates a
+6-digit code. The athlete uses that code to link
+their account. No email hunting required.
+
+DATABASE
+
+  create table athlete_profiles (
+    id uuid primary key default gen_random_uuid(),
+    coach_id uuid references coaches(id)
+      on delete cascade,
+    created_at timestamptz default now(),
+
+    -- Profile data (coach fills this in)
+    name text not null,
+    date_of_birth date,
+    sport text default 'Tennis',
+    club text,
+    maturity_stage text,
+      -- 'pre-phv', 'circa-phv', 'post-phv'
+    program_start_date date,
+    notes text,
+
+    -- Linking
+    invite_code text unique not null,
+    invite_code_expires_at timestamptz,
+    linked_athlete_id uuid references athletes(id),
+    linked_at timestamptz,
+    status text default 'pending'
+      -- 'pending', 'linked', 'expired'
+  );
+
+  alter table athlete_profiles enable row level security;
+
+  -- Coach can manage their own profiles
+  create policy "profiles_coach_own" on athlete_profiles
+    using (auth.uid() = coach_id);
+
+  -- Athlete can read profile with matching invite code
+  -- (used during linking flow)
+  create policy "profiles_athlete_link" on athlete_profiles
+    for select using (true);
+    -- Public read for code lookup — coach_id and sensitive
+    -- data protected by application logic
+
+COACH FLOW — CREATE ATHLETE PROFILE
+
+Route: /coach/athlete/new
+
+Stepper (same style as registration stepper):
+  1 CREATE PROFILE → 2 SEND CODE → 3 ATHLETE LINKS
+
+STEP 1 — CREATE ATHLETE PROFILE
+
+Header: "NEW ATHLETE PROFILE"
+Barlow Condensed blue, eyebrow: "COACH — ATHLETE SETUP"
+
+Form fields:
+
+  Label: "ATHLETE NAME"
+  Input: text, required
+  placeholder: "Full name"
+
+  Label: "DATE OF BIRTH"
+  Input: date
+
+  Label: "SPORT"
+  Input: text, default "Tennis"
+
+  Label: "CLUB / ACADEMY"
+  Input: text
+
+  Label: "CURRENT MATURITY STAGE"
+  Three pill selector:
+    PRE-PHV    CIRCA-PHV    POST-PHV
+  Selected: blue background, white text
+
+  Label: "PROGRAM START DATE"
+  Input: date
+  hint: "When does the 12-week program begin?"
+
+  Label: "COACH NOTES (PRIVATE)"
+  Textarea:
+    placeholder: "e.g. Strong technically, needs work on
+                  match play decision-making.
+                  Pre-PHV so prioritise skill development."
+  hint: "Only visible to you — not shared with athlete or parent."
+
+"CREATE PROFILE & GENERATE CODE" button
+  Full width, blue #0B7DF1, Barlow Condensed uppercase
+
+On submit:
+  1. Generate a random 6-digit alphanumeric code:
+       const code = Math.random().toString(36)
+                      .substring(2, 8).toUpperCase()
+       e.g. "PL4829" or "AX7K2M"
+  2. Set invite_code_expires_at = now() + 7 days
+  3. Insert into athlete_profiles
+  4. Navigate to Step 2 (code display screen)
+
+STEP 2 — CODE DISPLAY AND SHARING
+
+Route: /coach/athlete/:profileId/code
+
+Full-screen code display:
+
+  Header: "INVITE CODE GENERATED ✓"
+  Barlow Condensed green
+
+  Large code display:
+    .invite-code-display {
+      font-family: 'Space Mono', monospace;
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: .2em;
+      color: #1E293B;
+      text-align: center;
+      padding: 32px;
+      background: #F8FAFC;
+      border: 2px dashed #CBD5E1;
+      border-radius: 12px;
+      margin: 24px 0;
+    }
+    Shows: "PL4829"
+
+  Below code:
+    "Expires in 7 days"
+    Space Mono 10px grey
+
+  "COPY CODE" button:
+    Copies code to clipboard
+    Shows "Copied ✓" for 2 seconds
+
+  Instructions card (callout, green border):
+    Title: "Send this to your athlete"
+    Body:
+      "1. Share this 6-digit code with your athlete.
+       2. Ask them to download and open Pllay On.
+       3. They register as an Athlete and enter this
+          code when prompted.
+       4. Once they link, their data appears here
+          automatically."
+
+  Two buttons below:
+    "GENERATE NEW CODE"  (border only, grey)
+      → creates new code, invalidates old one
+    "VIEW ATHLETE PROFILES"  (blue filled)
+      → /coach/athletes
+
+STEP 3 — ATHLETE LINKS (automatic)
+  Once athlete uses the code:
+    athlete_profiles.linked_athlete_id is set
+    athlete_profiles.status = 'linked'
+    coach_athlete_links row is created
+    Coach dashboard shows athlete data automatically
+
+COACH ATHLETE PROFILES LIST — /coach/athletes
+
+Accessible from coach dashboard and bottom nav.
+Shows all athlete profiles created by this coach.
+
+Each profile card:
+  Athlete name (Barlow Condensed 18px)
+  Sport + maturity stage (Space Mono grey)
+  Status badge:
+    PENDING  → yellow, "Awaiting athlete link"
+    LINKED   → green, "[Athlete name] linked"
+    EXPIRED  → grey, "Code expired — regenerate"
+
+  If PENDING: show code and "Copy Code" button
+  If LINKED: show "VIEW ATHLETE →" → /dashboard/coach
+             with that athlete's data loaded
+  If EXPIRED: show "REGENERATE CODE" button
+
+"+ NEW ATHLETE" button top right → /coach/athlete/new
+
+ATHLETE FLOW — ENTERING THE CODE
+
+On the athlete registration form (/register/athlete),
+after the main profile fields are complete,
+add a new section below the form:
+
+  Divider: "HAVE A COACH INVITE CODE?"
+
+  Label: "ENTER YOUR CODE (OPTIONAL)"
+  hint: "Your coach will have given you a 6-digit code.
+         You can also enter it later from your dashboard."
+
+  Input:
+    Monospace font (Space Mono)
+    Letter-spacing wide
+    Text transforms to uppercase automatically
+    Max length: 6 characters
+    placeholder: "e.g. PL4829"
+
+  On registration complete:
+    If code was entered:
+      Look up athlete_profiles by invite_code
+      Check code is not expired and status = 'pending'
+      If valid:
+        Update athlete_profiles:
+          linked_athlete_id = new athlete's id
+          status = 'linked'
+          linked_at = now()
+        Insert into coach_athlete_links:
+          coach_id = athlete_profiles.coach_id
+          athlete_id = new athlete's id
+        Show success: "Linked to [Coach Name] ✓"
+      If invalid or expired:
+        Show: "Code not found or expired.
+               Ask your coach for a new one."
+        Continue registration without linking
+
+  If no code entered:
+    Register normally
+    On athlete dashboard show a persistent
+    (but dismissible) banner:
+      "Have a coach invite code? Enter it here →"
+      → /athlete/enter-code
+
+NEW ROUTE: /athlete/enter-code
+  Simple single-field form for athletes who
+  skipped the code at registration.
+  Same lookup and linking logic as above.
+
+REMOVE THE OLD LINKING SYSTEM
+  Remove /coach/link-athlete (email lookup)
+  Remove the athlete email field from coach registration
+  Replace "LINK AN ATHLETE →" on coach dashboard with
+  "CREATE ATHLETE PROFILE →" → /coach/athlete/new
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Any existing athlete functionality
+  - Weekly reflections, daily reflections
+  - Phase 0 modules
+  - Competition review, monthly check-ins, capstone
+  - Injury flag system
+  - Appendix pages
+  - Design tokens, colours, fonts
+  - Bottom navigation structure
+  - Progress tracker widget
+  - Auto-save behaviour
+  - All existing RLS policies not mentioned above

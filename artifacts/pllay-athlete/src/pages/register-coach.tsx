@@ -28,31 +28,21 @@ function Field({ label, value, onChange, required, type = 'text', placeholder, h
 export default function RegisterCoach() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
-  const [form, setForm] = useState({ name: '', club: '', specialisation: '', athleteEmail: '' });
+  const [form, setForm] = useState({ name: '', club: '', specialisation: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [linkError, setLinkError] = useState('');
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true); setError(''); setLinkError('');
+    setLoading(true); setError('');
     try {
       await apiFetch('/coach/profile', {
         method: 'POST',
         body: JSON.stringify({ name: form.name, club: form.club, specialisation: form.specialisation }),
       });
-      if (form.athleteEmail) {
-        try {
-          await apiFetch('/coach/link-athlete', { method: 'POST', body: JSON.stringify({ athleteEmail: form.athleteEmail }) });
-        } catch (e: any) {
-          setLinkError(e.message);
-          setLoading(false);
-          return;
-        }
-      }
       navigate('/dashboard/coach');
     } catch (e: any) {
       setError(e.message);
@@ -92,20 +82,6 @@ export default function RegisterCoach() {
           <Field label="Academy / Club" value={form.club} onChange={set('club')} />
           <Field label="Specialisation" value={form.specialisation} onChange={set('specialisation')} placeholder="e.g. Tennis — Junior Development" />
 
-          <div style={{ borderTop: '1px solid rgba(255,255,255,.1)', margin: '10px 0 4px' }} />
-          <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)' }}>
-            LINK TO ATHLETE
-          </div>
-          <Field
-            label="Athlete Email" value={form.athleteEmail} onChange={set('athleteEmail')} type="email"
-            hint="Enter your athlete's email address. They must already have a Pllay On account."
-          />
-
-          {linkError && (
-            <div style={{ padding: '10px 14px', background: '#FF493618', border: '1px solid #FF493640', borderRadius: 8, fontFamily: 'var(--font-b)', fontSize: 12, color: '#FF4936', lineHeight: 1.5 }}>
-              {linkError}
-            </div>
-          )}
           {error && (
             <div style={{ padding: '10px 14px', background: '#FF493618', border: '1px solid #FF493640', borderRadius: 8, fontFamily: 'var(--font-b)', fontSize: 12, color: '#FF4936' }}>
               {error}

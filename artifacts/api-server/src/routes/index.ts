@@ -15,6 +15,7 @@ import coachRouter from "./coach";
 import parentRouter from "./parent";
 import dailyReflectionRouter from "./daily-reflection";
 import injuryRouter from "./injury";
+import inviteRouter from "./invite";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(coachRouter);
 router.use(parentRouter);
 router.use(dailyReflectionRouter);
 router.use(injuryRouter);
+router.use(inviteRouter);
 
 export default router;

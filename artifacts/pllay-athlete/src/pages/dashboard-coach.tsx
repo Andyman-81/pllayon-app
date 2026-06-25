@@ -138,11 +138,16 @@ export default function CoachDashboard() {
           <div style={{ background: '#fff', border: `2px dashed ${BLUE}40`, borderRadius: 12, padding: '32px 24px', textAlign: 'center', marginBottom: 24 }}>
             <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 24, textTransform: 'uppercase', color: BLUE, marginBottom: 8 }}>No Athlete Linked</div>
             <p style={{ fontFamily: 'var(--font-b)', fontSize: 13, color: 'var(--grey)', marginBottom: 20 }}>
-              Link your athlete to see their data here.
+              Create an athlete profile and generate an invite code for your athlete to link their account.
             </p>
-            <button onClick={() => navigate('/register/coach')} style={{ padding: '12px 24px', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 18, textTransform: 'uppercase', cursor: 'pointer' }}>
-              Link an Athlete →
-            </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={() => navigate('/coach/athlete/new')} style={{ padding: '12px 24px', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 18, textTransform: 'uppercase', cursor: 'pointer' }}>
+                Create Athlete Profile →
+              </button>
+              <button onClick={() => navigate('/coach/athletes')} style={{ padding: '12px 24px', background: 'transparent', color: BLUE, border: `1.5px solid ${BLUE}`, borderRadius: 6, fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 18, textTransform: 'uppercase', cursor: 'pointer' }}>
+                View Profiles
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -409,7 +414,7 @@ export default function CoachDashboard() {
           { id: 'home', label: 'HOME', icon: '⌂', path: '/dashboard/coach' },
           { id: 'schedule', label: 'SCHEDULE', icon: '▤', path: `/schedule/week/${currentWeek}` },
           { id: 'plan', label: '12WK PLAN', icon: '◈', path: '/cycle-planner' },
-          { id: 'athlete', label: 'ATHLETE', icon: '◎', path: null },
+          { id: 'athlete', label: 'ATHLETE', icon: '◎', path: '/coach/athletes' },
           { id: 'review', label: 'MY REVIEW', icon: '✎', path: '/coach-review' },
         ].map(tab => (
           <button

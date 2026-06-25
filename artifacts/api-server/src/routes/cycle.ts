@@ -4,6 +4,7 @@ import {
   athletesTable, cyclePlanTable, cycleAthleteGoalsTable,
   coachesTable, coachAthleteLinksTable,
   parentsTable, parentAthleteLinksTable,
+  programSettingsTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
@@ -161,6 +162,42 @@ router.put("/cycle-planner/goals/:weekNum", async (req, res) => {
     result = created;
   }
   res.json(result);
+});
+
+/* ── GET program settings (start date) ─────────────── */
+router.get("/cycle-planner/settings", async (req, res) => {
+  const userId = auth(req, res); if (!userId) return;
+  const ctx = await resolveAthleteCtx(userId);
+  if (!ctx) { res.json({ programStartDate: null }); return; }
+
+  const [settings] = await db.select().from(programSettingsTable)
+    .where(eq(programSettingsTable.athleteId, ctx.athleteId)).limit(1);
+
+  res.json({ programStartDate: settings?.programStartDate ?? null });
+});
+
+/* ── PUT program settings (start date) ──────────────── */
+router.put("/cycle-planner/settings", async (req, res) => {
+  const userId = auth(req, res); if (!userId) return;
+  const ctx = await resolveAthleteCtx(userId);
+  if (!ctx) { res.status(404).json({ error: "No athlete found" }); return; }
+  if (ctx.role === "parent") { res.status(403).json({ error: "Parents cannot edit settings" }); return; }
+
+  const { programStartDate } = req.body;
+
+  const [existing] = await db.select().from(programSettingsTable)
+    .where(eq(programSettingsTable.athleteId, ctx.athleteId)).limit(1);
+
+  if (existing) {
+    await db.update(programSettingsTable)
+      .set({ programStartDate: programStartDate || null, updatedAt: new Date() })
+      .where(eq(programSettingsTable.athleteId, ctx.athleteId));
+  } else {
+    await db.insert(programSettingsTable)
+      .values({ athleteId: ctx.athleteId, programStartDate: programStartDate || null });
+  }
+
+  res.json({ ok: true, programStartDate: programStartDate || null });
 });
 
 export default router;

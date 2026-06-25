@@ -28,11 +28,52 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return r.json();
 }
 
+/* ── Date helpers ─────────────────────────────────────── */
+function weekStartDate(weekNum: number, startDate: string): Date {
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + (weekNum - 1) * 7);
+  return d;
+}
+
+function weekEndDate(weekNum: number, startDate: string): Date {
+  const d = weekStartDate(weekNum, startDate);
+  d.setDate(d.getDate() + 6);
+  return d;
+}
+
+function fmtShort(d: Date) {
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+
+function fmtFull(d: Date) {
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function weekDateLabel(weekNum: number, startDate: string | null): string | null {
+  if (!startDate) return null;
+  const s = weekStartDate(weekNum, startDate);
+  return fmtShort(s);
+}
+
+function weekDateRangeLabel(weekNum: number, startDate: string | null): string | null {
+  if (!startDate) return null;
+  const s = weekStartDate(weekNum, startDate);
+  const e = weekEndDate(weekNum, startDate);
+  return `${fmtShort(s)} – ${fmtShort(e)}`;
+}
+
+function programEndDate(startDate: string): string {
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + 83);
+  return fmtFull(d);
+}
+
 export default function CyclePlanner() {
   const role = getRole();
   const qc = useQueryClient();
   const KEY = ['/api/cycle-planner'];
   const GOALS_KEY = ['/api/cycle-planner/goals'];
+  const SETTINGS_KEY = ['/api/cycle-planner/settings'];
 
   const { data, isLoading } = useQuery({
     queryKey: KEY,
@@ -42,6 +83,11 @@ export default function CyclePlanner() {
   const { data: goalsData } = useQuery({
     queryKey: GOALS_KEY,
     queryFn: () => apiFetch('/api/cycle-planner/goals'),
+  });
+
+  const { data: settingsData } = useQuery({
+    queryKey: SETTINGS_KEY,
+    queryFn: () => apiFetch('/api/cycle-planner/settings'),
   });
 
   const addEventMutation = useMutation({
@@ -65,11 +111,38 @@ export default function CyclePlanner() {
       apiFetch(`/api/cycle-planner/goals/${weekNumber}`, { method: 'PUT', body: JSON.stringify({ goal }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: GOALS_KEY }),
   });
+  const settingsMutation = useMutation({
+    mutationFn: (programStartDate: string) =>
+      apiFetch('/api/cycle-planner/settings', { method: 'PUT', body: JSON.stringify({ programStartDate }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SETTINGS_KEY }),
+  });
 
   const [showModal, setShowModal] = useState(false);
   const [modalWeek, setModalWeek] = useState(1);
   const [form, setForm] = useState({ eventType: 'tournament', eventName: '', dateFrom: '', dateTo: '', focusNote: '', notes: '' });
   const goalTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const settingsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [savedMsg, setSavedMsg] = useState('');
+  const [startDateInput, setStartDateInput] = useState('');
+  const startDateInitialised = useRef(false);
+
+  const programStartDate: string | null = settingsData?.programStartDate ?? null;
+
+  if (!startDateInitialised.current && settingsData !== undefined) {
+    startDateInitialised.current = true;
+    setStartDateInput(programStartDate ?? '');
+  }
+
+  function handleStartDateChange(val: string) {
+    setStartDateInput(val);
+    setSavedMsg('');
+    if (settingsTimer.current) clearTimeout(settingsTimer.current);
+    settingsTimer.current = setTimeout(async () => {
+      await settingsMutation.mutateAsync(val);
+      setSavedMsg('Saved ✓');
+      setTimeout(() => setSavedMsg(''), 2500);
+    }, 500);
+  }
 
   function handleGoalChange(weekNumber: number, goal: string) {
     if (goalTimers.current[weekNumber]) clearTimeout(goalTimers.current[weekNumber]);
@@ -81,7 +154,6 @@ export default function CyclePlanner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Seed on first coach load
   const seedRef = useRef(false);
   if (role === 'coach' && !seedRef.current && !isLoading) {
     seedRef.current = true;
@@ -127,6 +199,8 @@ export default function CyclePlanner() {
     return goals.find((g: any) => g.weekNumber === weekNum)?.goal ?? '';
   }
 
+  const effectiveStartDate = startDateInput || programStartDate;
+
   return (
     <Layout currentPhase={0} currentSection="12-Week Plan">
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 0 120px' }}>
@@ -155,6 +229,32 @@ export default function CyclePlanner() {
           </div>
         </div>
 
+        {/* ── Start Date Card ── */}
+        {(role === 'coach' || role === 'athlete') && (
+          <div style={{ margin: '20px 20px 0', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: '#64748B' }}>Program Start Date</div>
+              <input
+                type="date"
+                value={startDateInput}
+                onChange={e => handleStartDateChange(e.target.value)}
+                style={{ border: '1.5px solid #E2E8F0', borderRadius: 8, padding: '10px 14px', fontFamily: 'Inter, var(--font-b)', fontSize: 14, color: '#1E293B', outline: 'none', minHeight: 44, background: '#fff' }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#0B7DF1'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
+              />
+            </div>
+            {effectiveStartDate && (
+              <div>
+                <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: '#64748B', marginBottom: 8 }}>Program End Date</div>
+                <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 18, color: '#1E293B' }}>{programEndDate(effectiveStartDate)}</div>
+              </div>
+            )}
+            {savedMsg && (
+              <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: '#10AC6E', fontWeight: 700 }}>{savedMsg}</div>
+            )}
+          </div>
+        )}
+
         {/* ── Section 1: Phase Timeline Grid ── */}
         <div style={{ padding: '20px 20px 0' }}>
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--grey)', fontWeight: 700, marginBottom: 10 }}>Phase Timeline</div>
@@ -163,13 +263,17 @@ export default function CyclePlanner() {
               const phase = getPhaseForWeek(wk);
               const col = PHASE_COLORS[phase];
               const wkEvents = eventsForWeek(wk);
+              const dateLabel = weekDateLabel(wk, effectiveStartDate);
               return (
                 <div
                   key={wk}
                   onClick={() => { if (role === 'coach') { setModalWeek(wk); setShowModal(true); } }}
-                  style={{ background: `${col}18`, border: `1.5px solid ${col}35`, borderRadius: 6, padding: '8px 4px', textAlign: 'center', cursor: role === 'coach' ? 'pointer' : 'default', minHeight: 64, position: 'relative' }}
+                  style={{ background: `${col}18`, border: `1.5px solid ${col}35`, borderRadius: 6, padding: '8px 4px', textAlign: 'center', cursor: role === 'coach' ? 'pointer' : 'default', minHeight: 72, position: 'relative' }}
                 >
-                  <div style={{ fontFamily: 'var(--font-m)', fontSize: 8, letterSpacing: '.1em', textTransform: 'uppercase', color: col, marginBottom: 4, fontWeight: 700 }}>W{wk}</div>
+                  <div style={{ fontFamily: 'var(--font-m)', fontSize: 8, letterSpacing: '.1em', textTransform: 'uppercase', color: col, marginBottom: 2, fontWeight: 700 }}>W{wk}</div>
+                  {dateLabel && (
+                    <div style={{ fontFamily: 'var(--font-m)', fontSize: 7, color: col, opacity: .7, marginBottom: 2, letterSpacing: '.04em' }}>{dateLabel}</div>
+                  )}
                   {wkEvents.map((ev: any) => (
                     <div key={ev.id} style={{ width: 8, height: 8, borderRadius: '50%', background: EVENT_COLOURS[ev.eventType] ?? '#64748B', margin: '2px auto' }} title={ev.eventName ?? ev.eventType} />
                   ))}
@@ -195,7 +299,7 @@ export default function CyclePlanner() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--dark)' }}>
-                  {['Week', 'Phase', 'Events', 'Focus', role !== 'parent' ? 'My Goal' : null].filter(Boolean).map(h => (
+                  {['Week', 'Date Range', 'Phase', 'Events', 'Focus', role !== 'parent' ? 'My Goal' : null].filter(Boolean).map(h => (
                     <th key={h!} style={{ padding: '9px 12px', textAlign: 'left', fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -208,11 +312,19 @@ export default function CyclePlanner() {
                   const lockedReview = wkEvents.find((e: any) => e.locked);
                   const nonLocked = wkEvents.filter((e: any) => !e.locked);
                   const focusEvent = wkEvents.find((e: any) => e.focusNote);
+                  const dateRange = weekDateRangeLabel(wk, effectiveStartDate);
                   return (
                     <tr key={wk} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--grey1)' }}>
                       {/* Week */}
                       <td style={{ padding: '10px 12px', fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 18, color: col, whiteSpace: 'nowrap' }}>
                         W{wk}
+                      </td>
+                      {/* Date Range */}
+                      <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', minWidth: 140 }}>
+                        {dateRange
+                          ? <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: 'var(--dark)', letterSpacing: '.04em' }}>{dateRange}</span>
+                          : <span style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: 'var(--grey)', fontStyle: 'italic' }}>—</span>
+                        }
                       </td>
                       {/* Phase */}
                       <td style={{ padding: '10px 12px', fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', color: col, whiteSpace: 'nowrap', fontWeight: 700 }}>
@@ -240,7 +352,7 @@ export default function CyclePlanner() {
                       <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--grey)', maxWidth: 180 }}>
                         {focusEvent?.focusNote && <span>{focusEvent.focusNote}</span>}
                       </td>
-                      {/* My Goal (athlete only) */}
+                      {/* My Goal (athlete/coach only) */}
                       {role !== 'parent' && (
                         <td style={{ padding: '10px 12px', minWidth: 180 }}>
                           {role === 'athlete' ? (
@@ -264,6 +376,11 @@ export default function CyclePlanner() {
               </tbody>
             </table>
           </div>
+          {!effectiveStartDate && (
+            <div style={{ marginTop: 12, fontFamily: 'var(--font-b)', fontSize: 12, color: 'var(--grey)', fontStyle: 'italic', textAlign: 'center' }}>
+              Set a start date above to see dates
+            </div>
+          )}
         </div>
       </div>
 
@@ -277,7 +394,6 @@ export default function CyclePlanner() {
             <div style={{ fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 24, textTransform: 'uppercase', color: 'var(--black)', marginBottom: 4 }}>Add Event</div>
             <div style={{ fontFamily: 'var(--font-m)', fontSize: 10, color: 'var(--grey)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 20 }}>Week {modalWeek}</div>
 
-            {/* Event type */}
             <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--grey)', marginBottom: 8 }}>Event Type</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
               {['tournament', 'testing', 'recovery', 'other'].map(et => (

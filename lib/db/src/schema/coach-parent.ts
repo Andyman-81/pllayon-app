@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const coachesTable = pgTable("coaches", {
   id: serial("id").primaryKey(),
@@ -80,3 +80,22 @@ export const parentCheckinObservationsTable = pgTable("parent_checkin_observatio
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type ParentCheckinObservation = typeof parentCheckinObservationsTable.$inferSelect;
+
+export const athleteProfilesTable = pgTable("athlete_profiles", {
+  id: serial("id").primaryKey(),
+  coachId: integer("coach_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  name: text("name").notNull(),
+  dateOfBirth: text("date_of_birth"),
+  sport: text("sport").default("Tennis"),
+  club: text("club"),
+  maturityStage: text("maturity_stage"),
+  programStartDate: text("program_start_date"),
+  notes: text("notes"),
+  inviteCode: text("invite_code").notNull().unique(),
+  inviteCodeExpiresAt: timestamp("invite_code_expires_at"),
+  linkedAthleteId: integer("linked_athlete_id"),
+  linkedAt: timestamp("linked_at"),
+  status: text("status").default("pending").notNull(),
+});
+export type AthleteProfile = typeof athleteProfilesTable.$inferSelect;
