@@ -1,0 +1,108 @@
+Fix a server crash caused by a missing session table.
+
+The error in the logs is:
+  Error: Failed query: select "sid", "sess", "expire" from "session"
+
+This means the Express server is configured to use
+a PostgreSQL session store (connect-pg-simple or similar)
+but the required "session" table does not exist in
+the Supabase database.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION A — CREATE THE SESSION TABLE (preferred)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run this SQL in the Supabase SQL editor:
+
+CREATE TABLE IF NOT EXISTS "session" (
+  "sid" varchar NOT NULL COLLATE "default",
+  "sess" json NOT NULL,
+  "expire" timestamp(6) NOT NULL
+)
+WITH (OIDS=FALSE);
+
+ALTER TABLE "session"
+  ADD CONSTRAINT "session_pkey"
+  PRIMARY KEY ("sid")
+  NOT DEFERRABLE INITIALLY IMMEDIATE;
+
+CREATE INDEX IF NOT EXISTS "IDX_session_expire"
+  ON "session" ("expire");
+
+This is the standard table schema required by
+connect-pg-simple. Creating it will stop the
+crash immediately.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION B — SWITCH TO A SIMPLER SESSION STORE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If Option A does not work, switch the session
+store from PostgreSQL to memory-based.
+
+Find the Express session configuration in the
+server file (likely server.js, server.ts,
+api-server.js or similar). It will look like:
+
+  const pgSession = require('connect-pg-simple')(session)
+  app.use(session({
+    store: new pgSession({ ... }),
+    ...
+  }))
+
+Replace with:
+
+  app.use(session({
+    // Remove the store property entirely
+    // Express will use in-memory store by default
+    secret: process.env.SESSION_SECRET || 'pllayon-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }))
+
+And remove the connect-pg-simple import entirely.
+
+Note: in-memory sessions reset when the server
+restarts. For a Replit app this is acceptable
+for V1 — users will need to log in again after
+a server restart, which is fine.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECOMMENDED APPROACH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Do Option A first — create the session table.
+It takes 30 seconds and requires no code changes.
+
+If the error persists after creating the table,
+do Option B — switch to memory store.
+
+Do not do both — pick one.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER FIXING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After applying the fix:
+
+1. Restart the Replit server (Stop → Run)
+2. Wait 20 seconds
+3. Open athlete-digital-workbook.replit.app
+4. Confirm the loading screen appears
+5. Confirm the login page loads
+6. Check the Logs tab in Replit Publishing —
+   the session error should be gone
+7. If new errors appear, report them
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Fix the session error only.
+  Do not change any application code,
+  components, database tables or features.
+  One fix, then verify the app loads.
