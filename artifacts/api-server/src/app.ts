@@ -8,6 +8,17 @@ import { authMiddleware } from "./middlewares/authMiddleware";
 
 const app: Express = express();
 
+/* ── Fast health routes ─────────────────────────────────────────────────────
+   These MUST come before every middleware (pino, cors, auth, etc.) so the
+   deployment healthcheck gets a 200 in < 5 ms even on cold start.        */
+app.get("/health", (_req, res) => {
+  res.status(200).send("ok");
+});
+app.get("/api", (_req, res) => {
+  res.status(200).json({ status: "ok", app: "Pllay On Edge" });
+});
+/* ── End fast health routes ─────────────────────────────────────────────── */
+
 app.use(
   pinoHttp({
     logger,
