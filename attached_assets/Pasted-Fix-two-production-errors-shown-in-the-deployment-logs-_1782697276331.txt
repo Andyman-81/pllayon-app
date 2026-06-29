@@ -1,0 +1,179 @@
+Fix two production errors shown in the deployment logs.
+Do not add any new features.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ERROR 1 — HEALTHCHECK FAILING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Log shows:
+  healthcheck failed error=healthcheck /api
+  returned status 500
+
+The /api healthcheck endpoint is crashing
+on startup before the server is ready.
+
+Find the healthcheck route in the API server.
+It likely looks like:
+
+  app.get('/api', async (req, res) => {
+    // some database check here
+  })
+
+Fix: make the healthcheck simple and
+unable to crash:
+
+  app.get('/api', (req, res) => {
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      app: 'Pllay On Edge'
+    })
+  })
+
+Remove any database queries from the
+healthcheck endpoint entirely.
+A healthcheck should never hit the database.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ERROR 2 — USERS TABLE INSERT FAILING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Log shows:
+  Error: Failed query: insert into "users"
+  ("id", "email", "first_name", "last_name"...
+  at async upsertUser
+  (/artifacts/api-server/src/routes/auth.ts)
+
+The upsertUser function in auth.ts is trying
+to insert into a "users" table with columns:
+  id, email, first_name, last_name
+
+But this table either does not exist in the
+production database or has different columns.
+
+Fix in two parts:
+
+PART A — Add users table to schema
+
+Open the Drizzle schema file and confirm
+a users table exists with these columns:
+
+  export const users = pgTable('users', {
+    id: text('id').primaryKey(),
+    email: text('email').notNull().unique(),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    profileImageUrl: text('profile_image_url'),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow()
+  })
+
+If it doesn't exist or has different columns,
+add/fix it in the schema file.
+
+PART B — Add to ensureSchema migration
+
+In the ensureSchema function (or wherever
+tables are created on startup), add:
+
+  -- Create users table if missing
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    first_name TEXT,
+    last_name TEXT,
+    profile_image_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  );
+
+PART C — Wrap upsertUser in try/catch
+
+In auth.ts, wrap the entire upsertUser
+function body in try/catch so a failure
+does not crash the server:
+
+  export async function upsertUser(userData) {
+    try {
+      const result = await db
+        .insert(users)
+        .values(userData)
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            updatedAt: new Date()
+          }
+        })
+        .returning()
+      return result[0]
+    } catch (error) {
+      console.error('upsertUser failed:', error.message)
+      // Do not throw — return null instead of crashing
+      return null
+    }
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ERROR 3 — SSL WARNING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Log shows:
+  SECURITY WARNING: The SSL modes 'prefer',
+  'require', and 'verify' are not currently
+  supported. Use sslmode=verify-full
+
+Find the database connection string in the
+server configuration. It will look like:
+
+  DATABASE_URL=postgres://...?sslmode=prefer
+
+Change sslmode=prefer to sslmode=require
+or add ?sslmode=no-verify to disable SSL
+for the Replit internal database connection.
+
+In the Drizzle/pg connection config:
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false
+  })
+
+The { rejectUnauthorized: false } setting
+resolves SSL certificate warnings in
+Replit's environment without disabling
+security entirely.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER FIXING — VERIFY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run in Shell:
+  npm run build
+
+Then click Republish.
+
+In the Logs tab confirm:
+  □ No healthcheck failed errors
+  □ No "Failed query: insert into users" error
+  □ No SSL WARNING messages
+  □ Server shows "listening on port 8080"
+  □ /api returns { status: 'ok' }
+
+Open athlete-digital-workbook.replit.app
+  □ Loading screen appears
+  □ Login page loads
+  □ No errors in browser console
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  No features, components or pages.
+  Fix the three server errors only.
+  Do not change the database schema beyond
+  what is specified above.

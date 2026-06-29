@@ -68,18 +68,23 @@ async function upsertUser(claims: Record<string, unknown>) {
       | null,
   };
 
-  const [user] = await db
-    .insert(usersTable)
-    .values(userData)
-    .onConflictDoUpdate({
-      target: usersTable.id,
-      set: {
-        ...userData,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return user;
+  try {
+    const [user] = await db
+      .insert(usersTable)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: usersTable.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  } catch (err: any) {
+    console.error("upsertUser failed:", err.message);
+    return { ...userData, createdAt: new Date(), updatedAt: new Date() };
+  }
 }
 
 router.get("/auth/user", (req: Request, res: Response) => {

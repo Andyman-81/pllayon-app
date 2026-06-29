@@ -42,6 +42,16 @@ async function ensureSchema() {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS "program_settings_athlete_id_unique"
         ON "program_settings" ("athlete_id");
+
+      CREATE TABLE IF NOT EXISTS "users" (
+        "id" varchar PRIMARY KEY,
+        "email" varchar UNIQUE,
+        "first_name" varchar,
+        "last_name" varchar,
+        "profile_image_url" varchar,
+        "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+        "updated_at" timestamp with time zone NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Schema check complete");
   } catch (err) {
