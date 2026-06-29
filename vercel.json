@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "artifacts/api-server/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "artifacts/pllay-athlete/dist/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "artifacts/api-server/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "artifacts/pllay-athlete/dist/$1"
+    }
+  ]
+}
