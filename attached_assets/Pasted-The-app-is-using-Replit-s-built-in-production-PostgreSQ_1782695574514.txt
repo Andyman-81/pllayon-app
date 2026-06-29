@@ -1,0 +1,176 @@
+The app is using Replit's built-in production PostgreSQL
+database, not Supabase directly. The server is crashing
+because required tables do not exist in the Replit
+production database.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DIAGNOSE FIRST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Answer these questions before making any changes:
+
+1. Is this app using Replit's built-in PostgreSQL
+   database (DATABASE_URL environment variable)
+   OR Supabase (VITE_SUPABASE_URL)?
+
+2. Open the server entry file and show me:
+   - What database connection is being used
+   - What the session store is configured as
+   - What tables the server tries to query on startup
+
+3. Run this in the Replit Shell:
+   echo $DATABASE_URL
+   If it returns a postgres:// URL, the app is
+   using Replit's database, not Supabase.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE CORRECT ARCHITECTURE FOR THIS APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This app should use ONE database only: Supabase.
+
+All user data, authentication, athlete records,
+reflections, schedules — everything — should be
+stored in Supabase via the Supabase client in
+the React frontend.
+
+The Express server should only:
+  1. Serve the built React frontend (dist folder)
+  2. Handle SPA routing (send index.html for all routes)
+  3. Nothing else
+
+The Express server should NOT:
+  - Connect to any database directly
+  - Manage sessions
+  - Handle authentication
+  - Query any tables directly
+  - Use connect-pg-simple or any session store
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE FIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the entire server entry file with this
+and nothing else:
+
+  import express from 'express'
+  import path from 'path'
+  import { fileURLToPath } from 'url'
+
+  const app = express()
+  const PORT = process.env.PORT || 3000
+
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = path.dirname(__filename)
+
+  // Serve Vite build output
+  app.use(express.static(path.join(__dirname, 'dist')))
+
+  // SPA fallback — all routes return index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  })
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Pllay On server running on port ${PORT}`)
+  })
+
+If the project uses CommonJS (require) instead of
+ES modules (import), use this version instead:
+
+  const express = require('express')
+  const path = require('path')
+
+  const app = express()
+  const PORT = process.env.PORT || 3000
+
+  app.use(express.static(path.join(__dirname, 'dist')))
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  })
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Pllay On server running on port ${PORT}`)
+  })
+
+Remove ALL of the following from the server file:
+  - Any require('express-session') or import of session
+  - Any require('connect-pg-simple') or session stores
+  - Any require('pg') or database pool connections
+  - Any app.use(session(...)) middleware
+  - Any database migration or table creation code
+  - Any API routes (/api/...) that proxy to a database
+  - Any passport or authentication middleware
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFY SUPABASE IS CONFIGURED CORRECTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Confirm these two secrets exist in Replit
+(padlock icon → Secrets):
+
+  VITE_SUPABASE_URL
+  VITE_SUPABASE_ANON_KEY
+
+If they are missing, add them now.
+Get the values from:
+  Supabase → your project → Settings → API
+
+The React frontend uses these to connect to
+Supabase directly. The server does not need
+any database credentials.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REBUILD AND REPUBLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After simplifying the server file:
+
+In the Replit Shell run:
+  rm -rf dist
+  npm run build
+
+Watch for errors. If build succeeds:
+  npm start
+  or click Run
+
+Then click Republish in the Publishing tab.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REPLIT DATABASE — WHAT TO DO WITH IT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The Replit production database that is connected
+("Production database connected" shown in the
+Publishing tab) is not needed for this app.
+
+Do not delete it — just ignore it.
+Do not connect to it in the server code.
+All data lives in Supabase.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXPECTED RESULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After this fix:
+  - Server starts with one log line only:
+    "Pllay On server running on port 3000"
+  - No database connection errors
+  - No session table errors
+  - athlete-digital-workbook.replit.app loads
+  - Login page appears
+  - All auth and data goes through Supabase
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Any React components or pages
+  - Any Supabase queries in the frontend
+  - Any database tables in Supabase
+  - vite.config.js or tsconfig
+  - package.json dependencies
+  - Any feature logic
+
+Server file only. Nothing else.
