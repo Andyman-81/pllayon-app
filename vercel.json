@@ -1,27 +1,7 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "artifacts/api-server/dist/index.mjs",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "artifacts/pllay-athlete/dist/public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api(.*)",
-      "dest": "artifacts/api-server/dist/index.mjs"
-    },
-    {
-      "src": "/health",
-      "dest": "artifacts/api-server/dist/index.mjs"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "artifacts/pllay-athlete/dist/public/$1"
-    }
-  ]
+  "framework": null,
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm --filter api-server build && pnpm --filter pllay-athlete build",
+  "outputDirectory": "artifacts/pllay-athlete/dist/public"
 }
