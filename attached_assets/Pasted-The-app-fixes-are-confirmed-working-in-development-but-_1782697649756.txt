@@ -1,0 +1,154 @@
+The app fixes are confirmed working in development
+but Republish keeps failing with a red Failed status.
+
+Fix the production deployment so Republish succeeds.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — READ THE REPUBLISH FAILURE REASON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Click "Advanced config..." next to the Failed
+republish button. Read what it says.
+
+Also check Publishing → Logs → filter by
+"Errors only" and look at the most recent
+entries after the last republish attempt.
+
+The failure reason will be one of:
+  A) Build error — npm run build failing
+  B) Health check timeout — /api not responding
+     fast enough on cold start
+  C) Out of memory during build
+  D) Missing environment variable in production
+  E) Port binding error
+
+Report exactly what the failure message says.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — FIX HEALTH CHECK TIMING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The most common cause of Replit republish
+failure after code changes is the health check
+timing out during deployment.
+
+The health check hits /api immediately when
+the server starts. If the server takes more
+than a few seconds to be ready (because it
+is running database migrations), the health
+check fails and deployment is marked as failed.
+
+Fix: delay the schema migration so the server
+responds to /api before running migrations.
+
+In the server entry file, restructure startup:
+
+  // 1. Start listening FIRST
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${PORT}`)
+  })
+
+  // 2. Run migrations AFTER server is ready
+  server.on('listening', async () => {
+    try {
+      await ensureSchema()
+      console.log('Schema ready')
+    } catch (err) {
+      console.error('Schema migration failed:', err.message)
+      // Do not crash — server keeps running
+    }
+  })
+
+This way the health check can hit /api immediately
+while migrations run in the background.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — VERIFY BUILD WORKS CLEANLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run in Shell:
+  npm run build 2>&1 | tail -20
+
+If the build fails, the output will show
+exactly which file and line is broken.
+Fix any TypeScript or import errors shown.
+
+Common build failures after recent changes:
+  - New route files imported but not created
+  - Type errors in the upsertUser function
+  - Missing exports from schema file
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — CHECK ENVIRONMENT VARIABLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Production deployments fail silently if
+environment variables are missing.
+
+In Replit → Secrets (padlock icon), confirm
+ALL of these exist:
+
+  DATABASE_URL
+  SESSION_SECRET
+  VITE_SUPABASE_URL (if used)
+  VITE_SUPABASE_ANON_KEY (if used)
+
+If SESSION_SECRET is missing, add it:
+  Key: SESSION_SECRET
+  Value: pllayon-session-secret-2024
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — FORCE A CLEAN REPUBLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After steps 2-4, do a clean rebuild:
+
+  rm -rf dist
+  npm run build
+
+If build succeeds with no errors:
+  Click Republish
+
+Watch the Logs tab in real time.
+The sequence should be:
+  1. "starting artifact process port=8080"
+  2. "artifact process started pid=XX"
+  3. GET /api → 200 (healthcheck passes)
+  4. "Schema check complete"
+  5. "Server ready"
+  6. Deployment status goes green
+
+If it fails at step 3 (healthcheck):
+  The server is not responding fast enough.
+  Apply the delayed migration fix in Step 2.
+
+If it fails at step 1 or 2:
+  Build artifact is broken.
+  Run npm run build again and fix errors.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — ONCE REPUBLISH SUCCEEDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After a successful republish, verify:
+
+  □ athlete-digital-workbook.replit.app loads
+  □ Login page appears
+  □ Register as coach works
+  □ Create athlete profile — no HTTP 404
+  □ Code is generated after profile creation
+  □ Logs show no errors
+
+The HTTP 404 on athlete profile creation
+will resolve automatically once the new
+API routes reach production via republish.
+No additional fix needed for that.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  No features, components or pages.
+  No database schema changes.
+  Fix the deployment pipeline only.
+  All application code stays as-is.

@@ -14,6 +14,16 @@ async function ensureSchema() {
       );
       CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "sessions" ("expire");
 
+      CREATE TABLE IF NOT EXISTS "users" (
+        "id" varchar PRIMARY KEY,
+        "email" varchar UNIQUE,
+        "first_name" varchar,
+        "last_name" varchar,
+        "profile_image_url" varchar,
+        "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+        "updated_at" timestamp with time zone NOT NULL DEFAULT now()
+      );
+
       CREATE TABLE IF NOT EXISTS "athlete_profiles" (
         "id" serial PRIMARY KEY,
         "coach_id" integer NOT NULL,
@@ -42,16 +52,6 @@ async function ensureSchema() {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS "program_settings_athlete_id_unique"
         ON "program_settings" ("athlete_id");
-
-      CREATE TABLE IF NOT EXISTS "users" (
-        "id" varchar PRIMARY KEY,
-        "email" varchar UNIQUE,
-        "first_name" varchar,
-        "last_name" varchar,
-        "profile_image_url" varchar,
-        "created_at" timestamp with time zone NOT NULL DEFAULT now(),
-        "updated_at" timestamp with time zone NOT NULL DEFAULT now()
-      );
     `);
     logger.info("Schema check complete");
   } catch (err) {
@@ -73,13 +73,16 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-ensureSchema().then(() => {
-  app.listen(port, (err) => {
-    if (err) {
-      logger.error({ err }, "Error listening on port");
-      process.exit(1);
-    }
+/* Start listening immediately so the healthcheck passes on cold boot,
+   then run schema migrations in the background. */
+const server = app.listen(port, (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
+  logger.info({ port }, "Server listening");
+});
 
-    logger.info({ port }, "Server listening");
-  });
+server.on("listening", () => {
+  ensureSchema();
 });
