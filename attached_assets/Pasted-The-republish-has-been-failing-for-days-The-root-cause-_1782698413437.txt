@@ -1,0 +1,144 @@
+The republish has been failing for days.
+The root cause is a port mismatch in the
+deployment configuration — not application code.
+
+The healthcheck hits port 1104 but the server
+runs on port 8080. Fix the deployment config.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — FIX THE .replit FILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open the .replit file in the root of the project.
+Show me its complete current contents.
+
+Then replace the entire [deployment] section
+and [[ports]] configuration with:
+
+  [deployment]
+  deploymentTarget = "autoscale"
+  build = ["npm", "run", "build"]
+  run = ["node", "artifacts/api-server/index.js"]
+
+  [[ports]]
+  localPort = 8080
+  externalPort = 80
+
+Remove any other [[ports]] entries entirely.
+There must be exactly ONE port mapping.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — FIX THE SERVER PORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In the server entry file, make sure the port
+matches exactly what .replit expects:
+
+  const PORT = process.env.PORT || 8080
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${PORT}`)
+  })
+
+The server must bind to 0.0.0.0 not localhost.
+Binding to localhost means Replit's healthcheck
+cannot reach it from outside the container.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — ADD /api HEALTH ROUTE BEFORE
+EVERYTHING ELSE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This must be literally the first thing in
+the server file after creating the Express app:
+
+  const app = express()
+
+  // FIRST TWO LINES — before any middleware
+  app.get('/health', (_req, res) =>
+    res.status(200).send('ok'))
+  app.get('/api', (_req, res) =>
+    res.status(200).json({ status: 'ok' }))
+
+  // Everything else after this
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — USE process.env.PORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replit sets process.env.PORT automatically
+in production. The server must use it.
+
+Check the current code — if it has:
+  app.listen(3000, ...)
+  app.listen(8080, ...)
+  app.listen(process.env.PORT || 3000, ...)
+
+Change ALL of these to:
+  app.listen(process.env.PORT || 8080, '0.0.0.0', ...)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — VERIFY IN SHELL BEFORE PUBLISHING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run this exact sequence in the Shell:
+
+  npm run build
+
+If build passes:
+
+  PORT=8080 node artifacts/api-server/index.js &
+  sleep 3
+  curl -s http://0.0.0.0:8080/api
+  curl -s http://0.0.0.0:8080/health
+
+Both curl commands must return a 200 response.
+If they do — the deployment will work.
+If they fail — show me the output.
+
+Kill the test server after:
+  kill %1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — REPUBLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Only click Republish after the curl test
+in Step 5 returns 200 for both endpoints.
+
+Watch Logs tab in real time.
+The deploy succeeds when you see:
+  GET /api → 200
+
+And the status dot goes green.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IF REPUBLISH STILL FAILS AFTER ALL THIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If it still fails after the port fix and
+curl test passes, the issue is with Replit's
+deployment infrastructure itself — not the code.
+
+In that case do this instead:
+
+  1. Go to Publishing → Manage tab
+  2. Click "Redeploy from scratch"
+     or "Reset deployment"
+  3. This creates a fresh deployment
+     without the cached bad configuration
+
+If there is no reset option:
+  Create a new Replit deployment by going to
+  Publishing → Overview → change deployment
+  target to "Reserved VM" then back to
+  "Autoscale" — this forces a config reset.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  No application features or components.
+  No database tables or queries.
+  No frontend code.
+  .replit config and server port only.

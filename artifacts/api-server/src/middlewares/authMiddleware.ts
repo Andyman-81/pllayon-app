@@ -68,20 +68,27 @@ export async function authMiddleware(
     return;
   }
 
-  const session = await getSession(sid);
-  if (!session?.user?.id) {
-    await clearSession(res, sid);
-    next();
-    return;
+  try {
+    const session = await getSession(sid);
+    if (!session?.user?.id) {
+      await clearSession(res, sid);
+      next();
+      return;
+    }
+
+    const refreshed = await refreshIfExpired(sid, session);
+    if (!refreshed) {
+      await clearSession(res, sid);
+      next();
+      return;
+    }
+
+    req.user = refreshed.user;
+  } catch (err: any) {
+    /* DB not ready yet (e.g. sessions table still being created).
+       Treat as unauthenticated rather than crashing with 500. */
+    console.error("authMiddleware DB error (non-fatal):", err.message);
   }
 
-  const refreshed = await refreshIfExpired(sid, session);
-  if (!refreshed) {
-    await clearSession(res, sid);
-    next();
-    return;
-  }
-
-  req.user = refreshed.user;
   next();
 }
