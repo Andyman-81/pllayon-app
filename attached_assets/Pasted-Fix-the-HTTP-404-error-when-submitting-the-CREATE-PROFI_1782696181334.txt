@@ -1,0 +1,211 @@
+Fix the HTTP 404 error when submitting the
+"CREATE PROFILE & GENERATE CODE" form on
+the /coach/athlete/new page.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DIAGNOSE FIRST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Find the form submission handler in the
+   coach athlete creation component.
+   What URL is it posting to?
+   e.g. fetch('/api/athlete-profiles', ...)
+   or fetch('/api/coach/athlete/new', ...)
+   Report the exact URL being called.
+
+2. Find the Express API routes file
+   (likely artifacts/api-server.js or similar).
+   Does a route exist that matches that URL?
+   If not — that is the 404.
+
+3. Check the athlete_profiles table exists
+   in the database being used (Replit Postgres).
+   Run in Shell:
+     npm run db:push
+   or check the schema migration status.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE FIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+There are two possible causes. Fix whichever
+applies after the diagnosis above.
+
+── CAUSE A: API ROUTE MISSING ──────────────
+
+If no route exists for athlete profile creation,
+add it to the Express API server file:
+
+  // POST /api/athlete-profiles
+  // Create a new athlete profile with invite code
+  app.post('/api/athlete-profiles', async (req, res) => {
+    try {
+      const {
+        name,
+        dateOfBirth,
+        sport,
+        club,
+        maturityStage,
+        programStartDate,
+        notes,
+        coachId
+      } = req.body
+
+      if (!name || !coachId) {
+        return res.status(400).json({
+          error: 'Name and coachId are required'
+        })
+      }
+
+      // Generate 6-digit alphanumeric invite code
+      const inviteCode = Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase()
+
+      // Set expiry 7 days from now
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + 7)
+
+      // Insert into athlete_profiles table
+      const result = await db.insert(athleteProfiles).values({
+        coachId,
+        name,
+        dateOfBirth: dateOfBirth || null,
+        sport: sport || 'Tennis',
+        club: club || null,
+        maturityStage: maturityStage || null,
+        programStartDate: programStartDate || null,
+        notes: notes || null,
+        inviteCode,
+        inviteCodeExpiresAt: expiresAt,
+        status: 'pending'
+      }).returning()
+
+      res.json({
+        success: true,
+        profile: result[0],
+        inviteCode
+      })
+
+    } catch (error) {
+      console.error('Error creating athlete profile:', error)
+      res.status(500).json({ error: error.message })
+    }
+  })
+
+── CAUSE B: TABLE MISSING IN REPLIT DB ─────
+
+If the athlete_profiles table doesn't exist
+in the Replit PostgreSQL database, add it
+to the Drizzle schema file (schema.ts or
+shared/schema.ts):
+
+  export const athleteProfiles = pgTable(
+    'athlete_profiles',
+    {
+      id: uuid('id').primaryKey().defaultRandom(),
+      coachId: integer('coach_id').notNull(),
+      createdAt: timestamp('created_at')
+        .defaultNow().notNull(),
+      name: text('name').notNull(),
+      dateOfBirth: date('date_of_birth'),
+      sport: text('sport').default('Tennis'),
+      club: text('club'),
+      maturityStage: text('maturity_stage'),
+      programStartDate: date('program_start_date'),
+      notes: text('notes'),
+      inviteCode: text('invite_code')
+        .notNull().unique(),
+      inviteCodeExpiresAt: timestamp(
+        'invite_code_expires_at'
+      ),
+      linkedAthleteId: integer('linked_athlete_id'),
+      linkedAt: timestamp('linked_at'),
+      status: text('status').default('pending')
+    }
+  )
+
+Then run the migration:
+  npm run db:push
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALSO ADD THESE MISSING ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+While fixing the athlete profiles route, check
+these routes also exist. Add any that are missing:
+
+  GET  /api/athlete-profiles/:coachId
+       Returns all profiles for a coach
+
+  GET  /api/athlete-profiles/code/:inviteCode
+       Looks up a profile by invite code
+       Used when athlete enters code to link
+
+  POST /api/athlete-profiles/:id/link
+       Links an athlete account to a profile
+       Body: { athleteId }
+       Updates status to 'linked'
+       Creates coach_athlete_links row
+
+  GET  /api/coach/athlete/:athleteId
+       Returns athlete data for coach view
+
+For each missing route, add it to the API server
+using the same pattern as the athlete profiles
+POST route above.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATE THE ATHLETE REGISTRATION FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On the athlete registration form, after the
+main fields, add an invite code field:
+
+  Label: "COACH INVITE CODE (OPTIONAL)"
+  Input: text, max 6 chars, auto-uppercase
+  Placeholder: "e.g. PL4829"
+  Hint: "Your coach will give you this code"
+
+On registration submit:
+  If invite code entered:
+    Call GET /api/athlete-profiles/code/:code
+    If found and not expired:
+      Call POST /api/athlete-profiles/:id/link
+        with the new athlete's id
+      Show "Linked to [Coach Name] ✓"
+    If not found:
+      Show "Code not found — you can add it later"
+      Continue registration without linking
+
+Add /athlete/enter-code route for athletes
+who skipped the code at registration:
+  Same single field form
+  Same lookup and linking logic
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TEST AFTER FIXING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  □ Fill in coach athlete creation form
+  □ Click CREATE PROFILE & GENERATE CODE
+  □ No 404 error
+  □ Code screen appears with 6-digit code
+  □ Code is copyable
+  □ Profile appears in /coach/athletes list
+  □ Athlete can enter code at registration
+  □ After code entry: coach dashboard shows
+    linked athlete data
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DO NOT CHANGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Any existing working routes or features
+  - The server architecture (keep using
+    Replit Postgres + Drizzle + Express)
+  - Any frontend components not related
+    to athlete profile creation
+  - Design, colours, fonts
+  - All other database tables and routes
