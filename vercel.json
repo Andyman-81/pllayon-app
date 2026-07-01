@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "framework": null,
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter api-server build && pnpm --filter pllay-athlete build",
-  "outputDirectory": "artifacts/pllay-athlete/dist/public"
+  "outputDirectory": "artifacts/pllay-athlete/dist/public",
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }
