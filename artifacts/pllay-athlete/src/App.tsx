@@ -314,7 +314,7 @@ function Router() {
 
         {/* Athlete routes */}
         <Route path="/dashboard/athlete"              component={() => <ProtectedRoute component={Dashboard} />} />
-        <Route path="/register/athlete"               component={() => <ProtectedRoute component={Onboarding} />} />
+        <Route path="/register/athlete"               component={Onboarding} />
         <Route path="/onboarding"                     component={() => <ProtectedRoute component={Onboarding} />} />
         <Route path="/phase0"                         component={() => <ProtectedRoute component={Phase0} />} />
         <Route path="/week/:weekNumber"               component={() => <ProtectedRoute component={WeeklyReflection} />} />
@@ -334,7 +334,7 @@ function Router() {
         <Route path="/injury"      component={() => <ProtectedRoute component={InjuryList} />} />
 
         {/* Coach routes */}
-        <Route path="/register/coach"              component={() => <ProtectedRoute component={RegisterCoach}    allowedRoles={['coach']} />} />
+        <Route path="/register/coach"              component={RegisterCoach} />
         <Route path="/dashboard/coach"             component={() => <ProtectedRoute component={CoachDashboard}   allowedRoles={['coach']} />} />
         <Route path="/coach-review"                component={() => <ProtectedRoute component={CoachReview}      allowedRoles={['coach']} />} />
         <Route path="/coach/athlete/new"           component={() => <ProtectedRoute component={CoachAthleteNew}  allowedRoles={['coach']} />} />
@@ -345,7 +345,7 @@ function Router() {
         <Route path="/athlete/enter-code" component={() => <ProtectedRoute component={AthleteEnterCode} allowedRoles={['athlete']} />} />
 
         {/* Parent routes */}
-        <Route path="/register/parent"  component={() => <ProtectedRoute component={RegisterParent}  allowedRoles={['parent']} />} />
+        <Route path="/register/parent"  component={RegisterParent} />
         <Route path="/dashboard/parent" component={() => <ProtectedRoute component={ParentDashboard} allowedRoles={['parent']} />} />
 
         <Route component={NotFound} />
