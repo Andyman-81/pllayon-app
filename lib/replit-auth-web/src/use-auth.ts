@@ -11,6 +11,9 @@ interface AuthState {
   logout: () => void;
 }
 
+const API_ORIGIN = import.meta.env.VITE_API_URL ?? '';
+const BASE_PATH = import.meta.env.BASE_URL.replace(/\/+$/, "");
+
 export function useAuth(): AuthState {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +21,7 @@ export function useAuth(): AuthState {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/auth/user", { credentials: "include" })
+    fetch(`${API_ORIGIN}/api/auth/user`, { credentials: "include" })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<{ user: AuthUser | null }>;
@@ -42,12 +45,12 @@ export function useAuth(): AuthState {
   }, []);
 
   const login = useCallback(() => {
-    const base = import.meta.env.BASE_URL.replace(/\/+$/, "") || "/";
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(base)}`;
+    window.location.href = `${BASE_PATH}/login`;
   }, []);
 
   const logout = useCallback(() => {
-    window.location.href = "/api/logout";
+    fetch(`${API_ORIGIN}/api/auth/logout`, { method: 'POST', credentials: 'include' })
+      .finally(() => { window.location.href = `${BASE_PATH}/login`; });
   }, []);
 
   return {

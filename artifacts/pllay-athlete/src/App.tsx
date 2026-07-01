@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter, useLocation } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuth } from '@workspace/replit-auth-web';
 import { useEffect, useRef, useState } from 'react';
+import { apiUrl } from '@/lib/api';
 
 import Dashboard from '@/pages/dashboard';
 import Onboarding from '@/pages/onboarding';
@@ -158,14 +159,35 @@ function DevPanel() {
 
 /* ── Login screen ────────────────────────────────────── */
 function LoginScreen() {
-  const { login } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role>(getRole());
   const [, navigate] = useLocation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
-  function handleLogin() {
-    saveRole(selectedRole);
-    login();
+  const activeColour = ROLES.find(r => r.value === selectedRole)?.colour ?? '#10AC6E';
+
+  async function handleLogin() {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Login failed'); return; }
+      saveRole(selectedRole);
+      window.location.href = import.meta.env.BASE_URL.replace(/\/+$/, '') + `/dashboard/${selectedRole}`;
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function toggleDevMode() {
@@ -178,7 +200,11 @@ function LoginScreen() {
     } catch {}
   }
 
-  const activeColour = ROLES.find(r => r.value === selectedRole)?.colour ?? '#10AC6E';
+  const inputStyle: React.CSSProperties = {
+    width: '100%', background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.15)',
+    borderRadius: 4, padding: '13px 16px', fontFamily: 'var(--font-b)', fontSize: 15,
+    color: '#fff', outline: 'none', boxSizing: 'border-box',
+  };
 
   return (
     <div style={{
@@ -193,7 +219,7 @@ function LoginScreen() {
           Development<br />Program
         </h1>
 
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--font-m)', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 12 }}>
             I am accessing as
           </div>
@@ -217,15 +243,44 @@ function LoginScreen() {
           </div>
         </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20, textAlign: 'left' }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={inputStyle}
+            autoComplete="email"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            style={inputStyle}
+            autoComplete="current-password"
+          />
+        </div>
+
+        {error && (
+          <p style={{ fontFamily: 'var(--font-b)', fontSize: 13, color: '#FF4936', marginBottom: 14 }}>
+            {error}
+          </p>
+        )}
+
         <button
           onClick={handleLogin}
+          disabled={loading}
           style={{
-            width: '100%', background: activeColour, color: '#111111', border: 'none', borderRadius: 4,
+            width: '100%', background: loading ? 'rgba(255,255,255,.2)' : activeColour,
+            color: loading ? 'rgba(255,255,255,.5)' : '#111111', border: 'none', borderRadius: 4,
             padding: '16px 32px', fontFamily: 'var(--font-d)', fontWeight: 800, fontSize: 22,
-            textTransform: 'uppercase', letterSpacing: '.06em', cursor: 'pointer', minHeight: 52,
+            textTransform: 'uppercase', letterSpacing: '.06em',
+            cursor: loading ? 'not-allowed' : 'pointer', minHeight: 52, transition: 'all .15s',
           }}
         >
-          Access Portal
+          {loading ? 'Signing in…' : 'Access Portal'}
         </button>
 
         <div style={{ marginTop: 20, fontFamily: 'var(--font-b)', fontSize: 13, color: 'rgba(255,255,255,.4)' }}>
