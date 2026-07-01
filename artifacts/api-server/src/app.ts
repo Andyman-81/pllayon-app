@@ -39,14 +39,7 @@ app.use(
   }),
 );
 
-app.use(cors({
-  origin: [
-    'https://pllayon-app.vercel.app',
-    'https://pllayon-app-git-main-pllayon.vercel.app',
-    'https://app.pllayon.app',
-  ],
-  credentials: true,
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
