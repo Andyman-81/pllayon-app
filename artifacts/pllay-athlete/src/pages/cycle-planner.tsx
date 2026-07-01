@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { getRole } from '@/lib/useRole';
 import { PHASE_COLORS, PHASE_LABELS, getPhaseForWeek } from '@/lib/constants';
+import { apiUrl } from '@/lib/api';
 
 const WEEKS_12 = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -23,7 +24,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 };
 
 async function apiFetch(path: string, opts?: RequestInit) {
-  const r = await fetch(path, { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
+  const r = await fetch(apiUrl(path), { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useCreateAthleteProfile } from "@workspace/api-client-react";
+import { apiUrl } from "@/lib/api";
 
 const GREEN = '#10AC6E';
 
 async function apiFetch(path: string, opts?: RequestInit) {
-  const r = await fetch(path, { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
+  const r = await fetch(apiUrl(path), { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

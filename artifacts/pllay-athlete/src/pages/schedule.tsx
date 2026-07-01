@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { getRole } from '@/lib/useRole';
 import { PHASE_COLORS } from '@/lib/constants';
+import { apiUrl } from '@/lib/api';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const PH = '#0B7DF1';
@@ -52,7 +53,7 @@ function durationHours(from?: string | null, to?: string | null): number {
 }
 
 async function apiFetch(path: string, opts?: RequestInit) {
-  const r = await fetch(path, { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
+  const r = await fetch(apiUrl(path), { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

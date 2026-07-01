@@ -1,4 +1,7 @@
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+const API_ORIGIN = import.meta.env.VITE_API_URL ?? '';
+const BASE = API_ORIGIN || import.meta.env.BASE_URL.replace(/\/$/, '');
+
+export const apiUrl = (path: string) => `${API_ORIGIN}${path}`;
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}/api${path}`, {
