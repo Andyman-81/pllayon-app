@@ -15,14 +15,16 @@ async function ensureSchema() {
       CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "sessions" ("expire");
 
       CREATE TABLE IF NOT EXISTS "users" (
-        "id" varchar PRIMARY KEY,
+        "id" varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         "email" varchar UNIQUE,
+        "password_hash" varchar,
         "first_name" varchar,
         "last_name" varchar,
         "profile_image_url" varchar,
         "created_at" timestamp with time zone NOT NULL DEFAULT now(),
         "updated_at" timestamp with time zone NOT NULL DEFAULT now()
       );
+      ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "password_hash" varchar;
 
       CREATE TABLE IF NOT EXISTS "athlete_profiles" (
         "id" serial PRIMARY KEY,
