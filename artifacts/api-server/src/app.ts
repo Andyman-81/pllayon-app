@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -46,5 +46,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
 
 app.use("/api", router);
+
+// Global error handler — catches any unhandled errors from async route handlers
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("[Unhandled route error]", err);
+  const message = err instanceof Error ? err.message : String(err);
+  res.status(500).json({ error: "Internal server error", detail: message });
+});
 
 export default app;
