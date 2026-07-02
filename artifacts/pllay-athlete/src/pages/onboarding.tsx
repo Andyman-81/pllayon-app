@@ -1,56 +1,74 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { useCreateAthleteProfile } from "@workspace/api-client-react";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, apiFetch } from "@/lib/api";
 
 const GREEN = '#10AC6E';
 
-async function apiFetch(path: string, opts?: RequestInit) {
-  const r = await fetch(apiUrl(path), { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...opts?.headers } });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+async function post(path: string, body: object) {
+  const r = await fetch(apiUrl(path), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((data as any).error || `HTTP ${r.status}`);
+  return data;
 }
 
 export default function Onboarding() {
-  const [, setLocation] = useLocation();
-  const createProfile = useCreateAthleteProfile();
-  
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [formData, setFormData] = useState({
-    name: "",
-    dob: "",
-    sport: "",
-    club: "",
-    coachName: "",
-    parentName: ""
+    name: "", dob: "", sport: "", club: "", coachName: "", parentName: ""
   });
-
   const [inviteCode, setInviteCode] = useState('');
   const [linkStatus, setLinkStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [linkMsg, setLinkMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    createProfile.mutate(
-      { data: formData },
-      {
-        onSuccess: async () => {
-          if (inviteCode.trim()) {
-            try {
-              const result = await apiFetch('/api/athlete/use-code', {
-                method: 'POST',
-                body: JSON.stringify({ code: inviteCode.trim() }),
-              });
-              setLinkStatus('success');
-              setLinkMsg(`Linked to ${result.profileName} ✓`);
-            } catch (err: any) {
-              setLinkStatus('error');
-              setLinkMsg(err.message ?? 'Code not found or expired. Ask your coach for a new one.');
-            }
-          }
-          setTimeout(() => setLocation("/"), linkStatus === 'success' ? 1200 : 0);
+    setLoading(true); setError('');
+    try {
+      await post('/api/auth/register', {
+        email: credentials.email,
+        password: credentials.password,
+        firstName: formData.name,
+      });
+
+      await apiFetch('/athlete/profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: formData.name,
+          dob: formData.dob,
+          sport: formData.sport,
+          club: formData.club,
+          coachName: formData.coachName,
+          parentName: formData.parentName,
+        }),
+      });
+
+      if (inviteCode.trim()) {
+        try {
+          const result: any = await apiFetch('/athlete/use-code', {
+            method: 'POST',
+            body: JSON.stringify({ code: inviteCode.trim() }),
+          });
+          setLinkStatus('success');
+          setLinkMsg(`Linked to ${result.profileName} ✓`);
+          await new Promise(r => setTimeout(r, 1200));
+        } catch (err: any) {
+          setLinkStatus('error');
+          setLinkMsg(err.message ?? 'Code not found or expired. Ask your coach for a new one.');
         }
       }
-    );
+
+      const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+      window.location.href = base + '/dashboard/athlete';
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -63,72 +81,91 @@ export default function Onboarding() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 pb-8 flex-1">
+
           <div>
-            <label className="block font-mono text-xs text-gray-400 mb-1">FULL NAME</label>
-            <input 
-              required
-              type="text" 
+            <label className="block font-mono text-xs text-gray-400 mb-1">EMAIL</label>
+            <input
+              required type="email"
               className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
-              value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
+              value={credentials.email}
+              onChange={e => setCredentials({ ...credentials, email: e.target.value })}
+              autoComplete="email"
             />
           </div>
-          
+
+          <div>
+            <label className="block font-mono text-xs text-gray-400 mb-1">PASSWORD</label>
+            <input
+              required type="password" minLength={8}
+              className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
+              value={credentials.password}
+              onChange={e => setCredentials({ ...credentials, password: e.target.value })}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-xs text-gray-400 mb-1">FULL NAME</label>
+            <input
+              required type="text"
+              className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+
           <div>
             <label className="block font-mono text-xs text-gray-400 mb-1">DATE OF BIRTH</label>
-            <input 
-              required
-              type="date" 
+            <input
+              required type="date"
               className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors text-white"
               style={{ colorScheme: 'dark' }}
               value={formData.dob}
-              onChange={e => setFormData({...formData, dob: e.target.value})}
+              onChange={e => setFormData({ ...formData, dob: e.target.value })}
             />
           </div>
 
           <div>
             <label className="block font-mono text-xs text-gray-400 mb-1">PRIMARY SPORT</label>
-            <input 
-              required
-              type="text" 
+            <input
+              required type="text"
               className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
               value={formData.sport}
-              onChange={e => setFormData({...formData, sport: e.target.value})}
+              onChange={e => setFormData({ ...formData, sport: e.target.value })}
             />
           </div>
 
           <div>
             <label className="block font-mono text-xs text-gray-400 mb-1">CLUB / TEAM (OPTIONAL)</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
               value={formData.club}
-              onChange={e => setFormData({...formData, club: e.target.value})}
+              onChange={e => setFormData({ ...formData, club: e.target.value })}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block font-mono text-xs text-gray-400 mb-1">COACH NAME</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
                 value={formData.coachName}
-                onChange={e => setFormData({...formData, coachName: e.target.value})}
+                onChange={e => setFormData({ ...formData, coachName: e.target.value })}
               />
             </div>
             <div>
               <label className="block font-mono text-xs text-gray-400 mb-1">PARENT NAME</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full bg-[#1E293B] border border-gray-800 rounded-md px-4 py-3 focus:outline-none focus:border-[#10AC6E] transition-colors"
                 value={formData.parentName}
-                onChange={e => setFormData({...formData, parentName: e.target.value})}
+                onChange={e => setFormData({ ...formData, parentName: e.target.value })}
               />
             </div>
           </div>
 
-          {/* ── Coach invite code ── */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: 20, marginTop: 8 }}>
             <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)', marginBottom: 14 }}>
               Have a Coach Invite Code?
@@ -137,9 +174,7 @@ export default function Onboarding() {
               Enter Your Code (Optional)
             </label>
             <input
-              type="text"
-              maxLength={6}
-              placeholder="e.g. PL4829"
+              type="text" maxLength={6} placeholder="e.g. PL4829"
               value={inviteCode}
               onChange={e => setInviteCode(e.target.value.toUpperCase())}
               style={{
@@ -154,7 +189,6 @@ export default function Onboarding() {
             <div style={{ marginTop: 4, fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'rgba(255,255,255,.3)', lineHeight: 1.45 }}>
               Your coach will have given you a 6-digit code. You can also enter it later from your dashboard.
             </div>
-
             {linkStatus === 'success' && (
               <div style={{ marginTop: 10, padding: '10px 14px', background: '#10AC6E18', border: '1px solid #10AC6E40', borderRadius: 8, fontFamily: 'Space Mono, monospace', fontSize: 11, color: '#10AC6E', fontWeight: 700 }}>
                 {linkMsg}
@@ -167,12 +201,17 @@ export default function Onboarding() {
             )}
           </div>
 
-          <button 
-            type="submit" 
-            disabled={createProfile.isPending}
+          {error && (
+            <div style={{ padding: '10px 14px', background: '#FF493618', border: '1px solid #FF493640', borderRadius: 8, fontFamily: 'Space Mono, monospace', fontSize: 12, color: '#FF4936' }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit" disabled={loading}
             className="w-full mt-8 bg-[#10AC6E] text-[#111111] font-heading text-2xl py-4 rounded-md uppercase hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {createProfile.isPending ? "Creating..." : "Begin Program"}
+            {loading ? "Creating…" : "Begin Program"}
           </button>
         </form>
       </div>

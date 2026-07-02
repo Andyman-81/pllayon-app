@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@workspace/replit-auth-web";
-import { apiFetch } from "@/lib/api";
+import { apiUrl, apiFetch } from "@/lib/api";
 
 const BLUE = '#0B7DF1';
 
@@ -27,8 +26,7 @@ function Field({ label, value, onChange, required, type = 'text', placeholder, h
 
 export default function RegisterCoach() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
-  const [form, setForm] = useState({ name: '', club: '', specialisation: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', club: '', specialisation: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,11 +37,24 @@ export default function RegisterCoach() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
+      await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, password: form.password, firstName: form.name }),
+      }).then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((d as any).error || `HTTP ${r.status}`);
+        return d;
+      });
+
       await apiFetch('/coach/profile', {
         method: 'POST',
         body: JSON.stringify({ name: form.name, club: form.club, specialisation: form.specialisation }),
       });
-      navigate('/dashboard/coach');
+
+      const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+      window.location.href = base + '/dashboard/coach';
     } catch (e: any) {
       setError(e.message);
       setLoading(false);
@@ -71,13 +82,9 @@ export default function RegisterCoach() {
           Set Up Your<br />Coach Profile
         </h1>
 
-        {user?.email && (
-          <div style={{ marginBottom: 24, padding: '10px 14px', background: `${BLUE}18`, border: `1px solid ${BLUE}40`, borderRadius: 8, fontFamily: 'var(--font-m)', fontSize: 11, color: BLUE }}>
-            Signed in as {user.email}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Field label="Email" value={form.email} onChange={set('email')} required type="email" />
+          <Field label="Password (min 8 characters)" value={form.password} onChange={set('password')} required type="password" />
           <Field label="Coach Name" value={form.name} onChange={set('name')} required />
           <Field label="Academy / Club" value={form.club} onChange={set('club')} />
           <Field label="Specialisation" value={form.specialisation} onChange={set('specialisation')} placeholder="e.g. Tennis — Junior Development" />

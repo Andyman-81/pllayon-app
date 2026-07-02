@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@workspace/replit-auth-web";
-import { apiFetch } from "@/lib/api";
+import { apiUrl, apiFetch } from "@/lib/api";
 
 const AMBER = '#D97706';
 
@@ -27,8 +26,7 @@ function Field({ label, value, onChange, required, type = 'text', placeholder, h
 
 export default function RegisterParent() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
-  const [form, setForm] = useState({ name: '', athleteEmail: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', athleteEmail: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [linkError, setLinkError] = useState('');
@@ -40,17 +38,37 @@ export default function RegisterParent() {
     e.preventDefault();
     setLoading(true); setError(''); setLinkError('');
     try {
-      await apiFetch('/parent/profile', { method: 'POST', body: JSON.stringify({ name: form.name }) });
+      await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, password: form.password, firstName: form.name }),
+      }).then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((d as any).error || `HTTP ${r.status}`);
+        return d;
+      });
+
+      await apiFetch('/parent/profile', {
+        method: 'POST',
+        body: JSON.stringify({ name: form.name }),
+      });
+
       if (form.athleteEmail) {
         try {
-          await apiFetch('/parent/link-athlete', { method: 'POST', body: JSON.stringify({ athleteEmail: form.athleteEmail }) });
+          await apiFetch('/parent/link-athlete', {
+            method: 'POST',
+            body: JSON.stringify({ athleteEmail: form.athleteEmail }),
+          });
         } catch (e: any) {
           setLinkError(e.message);
           setLoading(false);
           return;
         }
       }
-      navigate('/dashboard/parent');
+
+      const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+      window.location.href = base + '/dashboard/parent';
     } catch (e: any) {
       setError(e.message);
       setLoading(false);
@@ -78,13 +96,9 @@ export default function RegisterParent() {
           Set Up Your<br />Parent Profile
         </h1>
 
-        {user?.email && (
-          <div style={{ marginBottom: 24, padding: '10px 14px', background: `${AMBER}18`, border: `1px solid ${AMBER}40`, borderRadius: 8, fontFamily: 'var(--font-m)', fontSize: 11, color: AMBER }}>
-            Signed in as {user.email}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Field label="Email" value={form.email} onChange={set('email')} required type="email" />
+          <Field label="Password (min 8 characters)" value={form.password} onChange={set('password')} required type="password" />
           <Field label="Parent Name" value={form.name} onChange={set('name')} required />
 
           <div style={{ borderTop: '1px solid rgba(255,255,255,.1)', margin: '10px 0 4px' }} />
